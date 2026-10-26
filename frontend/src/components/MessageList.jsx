@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   FileText,
   ChevronDown,
@@ -145,7 +147,65 @@ export default function MessageList({
 
             <div className="max-w-[88%] sm:max-w-[80%] space-y-3">
               <div className="rounded-custom bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
-                <div className="whitespace-pre-wrap">{msg.content}</div>
+                <div className="text-sm leading-relaxed text-slate-800 dark:text-slate-200">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ node, ...props }) => <p className="mb-2.5 last:mb-0 leading-relaxed" {...props} />,
+                      strong: ({ node, ...props }) => (
+                        <strong className="font-bold text-slate-900 dark:text-white" {...props} />
+                      ),
+                      em: ({ node, ...props }) => (
+                        <em className="italic text-slate-800 dark:text-slate-200" {...props} />
+                      ),
+                      ul: ({ node, ...props }) => (
+                        <ul className="list-disc pl-5 my-2.5 space-y-1.5 marker:text-brand-500" {...props} />
+                      ),
+                      ol: ({ node, ...props }) => (
+                        <ol className="list-decimal pl-5 my-2.5 space-y-1.5 marker:text-brand-500 font-medium" {...props} />
+                      ),
+                      li: ({ node, ...props }) => (
+                        <li className="pl-0.5 leading-relaxed" {...props} />
+                      ),
+                      h1: ({ node, ...props }) => (
+                        <h1 className="text-lg font-bold text-slate-900 dark:text-white mt-4 mb-2 first:mt-0" {...props} />
+                      ),
+                      h2: ({ node, ...props }) => (
+                        <h2 className="text-base font-bold text-slate-900 dark:text-white mt-3.5 mb-2 first:mt-0" {...props} />
+                      ),
+                      h3: ({ node, ...props }) => (
+                        <h3 className="text-sm font-semibold text-brand-600 dark:text-brand-400 mt-3 mb-1.5 first:mt-0 uppercase tracking-wide" {...props} />
+                      ),
+                      blockquote: ({ node, ...props }) => (
+                        <blockquote className="border-l-3 border-brand-500 pl-3 my-2 text-slate-600 dark:text-slate-400 italic" {...props} />
+                      ),
+                      code: ({ inline, className, children, ...props }) => {
+                        return inline ? (
+                          <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-brand-600 dark:text-brand-400 font-mono text-xs font-semibold" {...props}>
+                            {children}
+                          </code>
+                        ) : (
+                          <pre className="p-3 my-2 rounded-lg bg-slate-900 text-slate-100 font-mono text-xs overflow-x-auto border border-slate-800">
+                            <code {...props}>{children}</code>
+                          </pre>
+                        );
+                      },
+                      table: ({ node, ...props }) => (
+                        <div className="overflow-x-auto my-3">
+                          <table className="w-full text-xs border border-slate-200 dark:border-slate-800" {...props} />
+                        </div>
+                      ),
+                      th: ({ node, ...props }) => (
+                        <th className="border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/80 p-2 font-semibold text-left text-slate-900 dark:text-white" {...props} />
+                      ),
+                      td: ({ node, ...props }) => (
+                        <td className="border border-slate-200 dark:border-slate-800 p-2 text-slate-700 dark:text-slate-300" {...props} />
+                      ),
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                </div>
 
                 {/* Citations Bar */}
                 {msg.sources && msg.sources.length > 0 && (
