@@ -4,6 +4,7 @@ import TopBar from './components/TopBar';
 import MessageList from './components/MessageList';
 import InputFooter from './components/InputFooter';
 import MorphOrb from './components/ui/ai-thiking-orb-and-input';
+import GatewayFlow from './components/ui/gateway-flow';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -207,10 +208,20 @@ export default function App() {
             onToggleTheme={() => setIsDarkMode(!isDarkMode)}
             onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
             viewMode={viewMode}
-            onToggleViewMode={() => setViewMode(viewMode === 'chat' ? 'orb' : 'chat')}
+            onToggleViewMode={(mode) => setViewMode(mode)}
           />
 
-          {viewMode === 'orb' ? (
+          {viewMode === 'gateway' ? (
+            /* Gateway Flow Interactive Effect */
+            <div className="flex-1 w-full h-full relative overflow-hidden bg-black flex items-center justify-center">
+              <GatewayFlow
+                className="w-full h-full"
+                mode={isDarkMode ? 'dark' : 'light'}
+                speed={1}
+                density={1.2}
+              />
+            </div>
+          ) : viewMode === 'orb' ? (
             /* Morphing Thinking Orb Mode */
             <div className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center p-2 sm:p-4">
               <MorphOrb
