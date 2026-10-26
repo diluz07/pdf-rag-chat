@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, RotateCcw, Sun, Moon, Menu } from 'lucide-react';
+import { MessageSquare, RotateCcw, Sun, Moon, Menu, Sparkles } from 'lucide-react';
 
 export default function TopBar({
   activeDoc,
@@ -7,6 +7,8 @@ export default function TopBar({
   isDarkMode,
   onToggleTheme,
   onToggleMobileSidebar,
+  viewMode,
+  onToggleViewMode,
 }) {
   return (
     <header className="h-14 px-4 sm:px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 z-10 transition-colors">
@@ -26,7 +28,7 @@ export default function TopBar({
         
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-white truncate max-w-[200px] sm:max-w-md">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-white truncate max-w-[180px] sm:max-w-md">
               {activeDoc ? activeDoc.filename : 'No document selected'}
             </h2>
             {activeDoc && (
@@ -43,8 +45,20 @@ export default function TopBar({
 
       {/* Action Controls */}
       <div className="flex items-center space-x-2">
+        {/* View Mode Toggle: Classic Chat vs Thinking Orb */}
+        <button
+          onClick={onToggleViewMode}
+          title="Toggle between Classic Chat and Morphing Thinking Orb"
+          className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 hover:border-brand-500 dark:hover:border-brand-400 transition-all flex items-center gap-1.5"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+          <span className="hidden sm:inline">
+            {viewMode === 'orb' ? 'Classic Chat' : 'Thinking Orb UI'}
+          </span>
+        </button>
+
         {/* Clear Chat */}
-        {activeDoc && (
+        {activeDoc && viewMode === 'chat' && (
           <button
             onClick={onClearChat}
             title="Clear conversation"

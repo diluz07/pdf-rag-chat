@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import MessageList from './components/MessageList';
 import InputFooter from './components/InputFooter';
+import MorphOrb from './components/ui/ai-thiking-orb-and-input';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -13,8 +14,9 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState('');
   const [serverStatus, setServerStatus] = useState('checking');
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true); // Default to sleek dark mode
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('chat'); // 'chat' | 'orb'
 
   // Sync dark mode class on <html>
   useEffect(() => {
@@ -145,6 +147,36 @@ export default function App() {
     }
   };
 
+  // Wire MorphOrb submit handler to RAG backend API
+  const handleOrbSubmit = async (queryText) => {
+    if (!activeDoc) {
+      return "Please upload a PDF document in the sidebar to search and ask questions.";
+    }
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doc_id: activeDoc.doc_id,
+          question: queryText,
+          history: [],
+          similarity_threshold: 0.35,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return `Query error: ${err.detail || 'Failed to retrieve answer'}`;
+      }
+
+      const data = await res.json();
+      return data.answer;
+    } catch (err) {
+      return `Connection error: ${err.message || 'Backend unreachable'}`;
+    }
+  };
+
   const handleClearChat = () => {
     if (confirm('Clear current conversation?')) {
       setMessages([]);
@@ -167,31 +199,44 @@ export default function App() {
         />
 
         {/* Right Main Panel */}
-        <main className="flex-1 flex flex-col bg-slate-50/50 dark:bg-slate-950/60 min-w-0 h-full overflow-hidden">
+        <main className="flex-1 flex flex-col bg-slate-50/50 dark:bg-slate-950/60 min-w-0 h-full overflow-hidden relative">
           <TopBar
             activeDoc={activeDoc}
             onClearChat={handleClearChat}
             isDarkMode={isDarkMode}
             onToggleTheme={() => setIsDarkMode(!isDarkMode)}
             onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+            viewMode={viewMode}
+            onToggleViewMode={() => setViewMode(viewMode === 'chat' ? 'orb' : 'chat')}
           />
 
-          {/* Scrollable Message List / Canvas */}
-          <div className="flex-1 overflow-y-auto">
-            <MessageList
-              activeDoc={activeDoc}
-              messages={messages}
-              isLoading={isLoading}
-              onSelectPrompt={handleSendMessage}
-            />
-          </div>
+          {viewMode === 'orb' ? (
+            /* Morphing Thinking Orb Mode */
+            <div className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center p-2 sm:p-4">
+              <MorphOrb
+                onSubmit={handleOrbSubmit}
+                minThinkMs={3200}
+              />
+            </div>
+          ) : (
+            /* Classic Document Chat Mode */
+            <>
+              <div className="flex-1 overflow-y-auto">
+                <MessageList
+                  activeDoc={activeDoc}
+                  messages={messages}
+                  isLoading={isLoading}
+                  onSelectPrompt={handleSendMessage}
+                />
+              </div>
 
-          {/* Fixed Bottom Input Bar */}
-          <InputFooter
-            activeDoc={activeDoc}
-            onSendMessage={handleSendMessage}
-            isLoading={isLoading}
-          />
+              <InputFooter
+                activeDoc={activeDoc}
+                onSendMessage={handleSendMessage}
+                isLoading={isLoading}
+              />
+            </>
+          )}
         </main>
       </div>
     </div>
