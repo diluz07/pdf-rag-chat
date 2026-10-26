@@ -43,7 +43,7 @@ export default function Sidebar({
       {/* Brand Logo & Title */}
       <div className="p-5 pb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/70">
         <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-custom bg-brand-600 flex items-center justify-center text-white shadow-sm shadow-brand-500/20">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-600 to-cyan-500 flex items-center justify-center text-white shadow-sm shadow-sky-500/25">
             <FileText className="w-5 h-5" />
           </div>
           <div>

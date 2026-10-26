@@ -40,15 +40,23 @@ CORE PRINCIPLES:
    Do not apologize, speculate, or suggest external possibilities."""
 
 
-def get_primary_llm():
-    """Initializes Groq LLM client if configured."""
+# Multi-model Groq pool for automatic failover when rate limits are reached
+GROQ_MODELS_POOL = [
+    os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip(),
+    "llama-3.1-8b-instant",
+    "mixtral-8x7b-32768",
+    "gemma2-9b-it",
+]
+
+
+def get_groq_llm(model_name: str):
+    """Initializes a specific Groq model client."""
     groq_api_key = os.getenv("GROQ_API_KEY", "").strip()
     if not groq_api_key or groq_api_key.startswith("your_"):
         return None
 
     try:
         from langchain_groq import ChatGroq
-        model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
         return ChatGroq(
             groq_api_key=groq_api_key,
             model_name=model_name,
@@ -57,40 +65,57 @@ def get_primary_llm():
             timeout=18,
         )
     except Exception as e:
-        logger.warning(f"Could not initialize ChatGroq: {e}")
+        logger.warning(f"Could not initialize ChatGroq ({model_name}): {e}")
         return None
 
 
-def get_fallback_llm():
-    """Initializes OpenRouter LLM client as fallback."""
-    openrouter_api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
-    if not openrouter_api_key or openrouter_api_key.startswith("your_"):
-        return None
-
-    try:
-        from langchain_openai import ChatOpenAI
-        model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free").strip()
-        return ChatOpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=openrouter_api_key,
-            model=model_name,
-            temperature=0.2,
-            max_retries=1,
-            timeout=20,
-        )
-    except Exception as e:
-        logger.warning(f"Could not initialize OpenRouter fallback: {e}")
-        return None
+def get_primary_llm():
+    """Returns the primary Groq model for backward compatibility."""
+    preferred = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+    return get_groq_llm(preferred)
 
 
 def get_llm():
-    """Returns primary LLM (Groq) or fallback LLM (OpenRouter)."""
+    """Returns primary LLM for backward compatibility."""
     llm = get_primary_llm()
     if llm:
         return llm, "groq"
-    fallback = get_fallback_llm()
-    if fallback:
-        return fallback, "openrouter"
+    return None, "none"
+
+
+def invoke_llm_cascade(messages: list) -> Tuple[Optional[str], str]:
+    """
+    Executes an LLM prompt across multiple Groq models:
+    Iterates through multiple Groq models (bypassing model-specific rate limits).
+    Returns: (generated_text, provider_and_model_identifier)
+    """
+    # Deduplicate Groq models
+    seen_groq = set()
+    groq_models = []
+    for m in GROQ_MODELS_POOL:
+        if m and m not in seen_groq:
+            seen_groq.add(m)
+            groq_models.append(m)
+
+    for model in groq_models:
+        llm = get_groq_llm(model)
+        if not llm:
+            continue
+        try:
+            logger.info(f"Attempting generation with Groq model: {model}...")
+            response = llm.invoke(messages)
+            text = response.content.strip()
+            if text:
+                logger.info(f"Successfully generated response with Groq ({model})")
+                return text, f"groq:{model}"
+        except Exception as err:
+            err_msg = str(err).lower()
+            if "429" in err_msg or "rate" in err_msg or "limit" in err_msg or "quota" in err_msg:
+                logger.warning(f"Groq rate limit hit on model '{model}' ({err}). Automatically cascading to next Groq model in pool...")
+            else:
+                logger.warning(f"Groq model '{model}' failed ({err}). Trying next model in pool...")
+
+    logger.error("All Groq models in the cascade pool reached rate limits or failed.")
     return None, "none"
 
 
@@ -109,13 +134,13 @@ def clean_llm_response(text: str) -> str:
 def rewrite_question_with_history(
     question: str,
     history: List[Dict[str, str]],
-    llm,
+    llm=None,
 ) -> str:
     """
     If multi-turn history exists, rewrites ambiguous follow-up questions
-    into standalone search queries.
+    into standalone search queries using the multi-model cascade.
     """
-    if not history or not llm:
+    if not history:
         return question
 
     recent_turns = history[-4:]  # Last 2 exchanges
@@ -133,14 +158,21 @@ Follow-up Question: {question}
 
 Standalone Question:"""
 
-    try:
-        response = llm.invoke([HumanMessage(content=prompt)])
-        standalone = response.content.strip().replace('"', "")
-        if standalone:
-            logger.info(f"Rephrased question: '{question}' -> '{standalone}'")
-            return standalone
-    except Exception as err:
-        logger.warning(f"Question rewriter failed: {err}. Using original question.")
+    if llm:
+        try:
+            response = llm.invoke([HumanMessage(content=prompt)])
+            standalone = response.content.strip().replace('"', "")
+            if standalone:
+                logger.info(f"Rephrased question: '{question}' -> '{standalone}'")
+                return standalone
+        except Exception as e:
+            logger.warning(f"Provided LLM failed for question rewriting ({e}). Using cascade...")
+
+    generated, _ = invoke_llm_cascade([HumanMessage(content=prompt)])
+    if generated:
+        standalone = generated.replace('"', "").strip()
+        logger.info(f"Rephrased question via cascade: '{question}' -> '{standalone}'")
+        return standalone
 
     return question
 
@@ -166,9 +198,9 @@ def answer_query(
     """
     Main RAG generation logic with:
     1. Similarity threshold gatekeeper
-    2. Primary LLM (Groq) with automatic fallback (OpenRouter)
-    3. Strict grounding prompt enforcement
-    4. Source citations metadata
+    2. Multi-model Groq cascade with automatic rate limit failover
+    3. OpenRouter multi-model fallback
+    4. Strict grounding prompt enforcement and source citations
     """
     history = history or []
 
@@ -206,22 +238,6 @@ def answer_query(
         for doc, score in chunks_with_scores
     ]
 
-    # 3. Initialize LLM
-    primary_llm, provider_name = get_llm()
-    if not primary_llm:
-        # If no LLM keys are configured, return grounded context preview
-        return {
-            "answer": (
-                "LLM API key not configured yet. "
-                "Here are the most relevant sections found in your document:\n\n"
-                + "\n\n".join([f"**[Page {s['page']}]**: {s['content'][:250]}..." for s in sources_data[:2]])
-            ),
-            "sources": sources_data,
-            "grounded": True,
-            "provider": "mock",
-            "gated": False,
-        }
-
     context_str = format_context_chunks(chunks_with_scores)
     formatted_system = SYSTEM_GROUNDING_PROMPT.format(not_found_message=NOT_FOUND_MESSAGE)
 
@@ -236,44 +252,24 @@ Instructions for your response:
 3. Integrate [Page X] citations naturally where facts are mentioned.
 4. If the document truly does not contain information to answer the question, reply with '{NOT_FOUND_MESSAGE}'."""
 
-    # 4. Generate answer with primary -> fallback handling
-    generated_text = ""
-    used_provider = provider_name
+    # 3. Generate answer via Groq multi-model cascade -> OpenRouter fallback
+    generated_text, used_provider = invoke_llm_cascade([
+        SystemMessage(content=formatted_system),
+        HumanMessage(content=user_prompt),
+    ])
 
-    try:
-        response = primary_llm.invoke([
-            SystemMessage(content=formatted_system),
-            HumanMessage(content=user_prompt),
-        ])
-        generated_text = response.content.strip()
-    except Exception as primary_err:
-        logger.warning(f"Primary LLM ({provider_name}) failed: {primary_err}. Trying fallback...")
-        fallback_llm = get_fallback_llm() if provider_name != "openrouter" else None
-        if fallback_llm:
-            try:
-                response = fallback_llm.invoke([
-                    SystemMessage(content=formatted_system),
-                    HumanMessage(content=user_prompt),
-                ])
-                generated_text = response.content.strip()
-                used_provider = "openrouter-fallback"
-            except Exception as fallback_err:
-                logger.error(f"Fallback LLM also failed: {fallback_err}")
-                return {
-                    "answer": "An error occurred while generating the answer. Please check your API keys or try again.",
-                    "sources": sources_data,
-                    "grounded": False,
-                    "provider": "error",
-                    "gated": False,
-                }
-        else:
-            return {
-                "answer": f"LLM error: {str(primary_err)}. Please verify your API key in backend/.env.",
-                "sources": sources_data,
-                "grounded": False,
-                "provider": "error",
-                "gated": False,
-            }
+    if not generated_text:
+        return {
+            "answer": (
+                "All AI models in the pool are currently rate-limited or unavailable. "
+                "Here are the most relevant sections retrieved from your document:\n\n"
+                + "\n\n".join([f"**[Page {s['page']}]**: {s['content'][:250]}..." for s in sources_data[:2]])
+            ),
+            "sources": sources_data,
+            "grounded": True,
+            "provider": "exhausted_fallback",
+            "gated": False,
+        }
 
     # 5. Clean and format answer
     clean_ans = clean_llm_response(generated_text)

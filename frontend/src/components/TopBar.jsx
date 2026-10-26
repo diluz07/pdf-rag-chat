@@ -105,7 +105,7 @@ export default function TopBar({
           ) : (
             <button
               onClick={onOpenAuthModal}
-              className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shadow-sky-600/20"
             >
               <LogIn className="w-3.5 h-3.5" />
               <span>Sign In</span>

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, KeyRound, ArrowRight, X, Sparkles, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
-import { GoogleLogin } from '@react-oauth/google';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+import { BACKEND_URL } from '../config';
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const [step, setStep] = useState('email'); // 'email' | 'code'
@@ -89,37 +88,13 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse) => {
-    setIsLoading(true);
-    setError('');
-    try {
-      const res = await fetch(`${BACKEND_URL}/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential: credentialResponse.credential }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Google authentication failed.');
-      }
-
-      onLoginSuccess(data.user);
-      onClose();
-    } catch (err) {
-      setError(err.message || 'Google sign-in failed.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           aria-label="Close dialog"
         >
           <X className="w-5 h-5" />
@@ -127,14 +102,14 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
         {/* Modal Header */}
         <div className="text-center mb-6">
-          <div className="w-11 h-11 mx-auto mb-3 rounded-xl bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 flex items-center justify-center border border-brand-200 dark:border-brand-800/60">
-            <Sparkles className="w-5 h-5" />
+          <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-sky-500 to-cyan-500 text-white flex items-center justify-center shadow-md shadow-sky-500/20">
+            <Mail className="w-6 h-6" />
           </div>
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-            Sign in to DocuMind
+            Sign in with Email
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Access saved document sessions and grounded search
+            We will send a 6-digit verification code to your email
           </p>
         </div>
 
@@ -154,29 +129,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           </div>
         )}
 
-        {/* 1. Google One-Click Login */}
-        <div className="flex justify-center mb-4">
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => setError('Google sign-in was cancelled or encountered an error.')}
-            shape="pill"
-            theme="outline"
-            size="large"
-            text="continue_with"
-            width="280"
-          />
-        </div>
-
-        {/* Divider */}
-        <div className="relative my-4 flex items-center">
-          <div className="flex-grow border-t border-slate-200 dark:border-slate-800" />
-          <span className="px-3 text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-            or with email code
-          </span>
-          <div className="flex-grow border-t border-slate-200 dark:border-slate-800" />
-        </div>
-
-        {/* 2. Email OTP Flow */}
+        {/* Email OTP Flow */}
         {step === 'email' ? (
           <form onSubmit={handleSendOtp} className="space-y-3.5">
             <div>
@@ -199,7 +152,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             <button
               type="submit"
               disabled={isLoading || !email.trim()}
-              className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium text-xs rounded-lg transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 disabled:opacity-50 text-white font-medium text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm shadow-sky-600/20 cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -228,7 +181,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                     setError('');
                     setSuccessMsg('');
                   }}
-                  className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                  className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline"
                 >
                   Change email
                 </button>
@@ -244,7 +197,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                   placeholder="123456"
-                  className="w-full pl-9 pr-3 py-2.5 text-center text-lg tracking-[0.3em] font-mono bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  className="w-full pl-9 pr-3 py-2.5 text-center text-lg tracking-[0.3em] font-mono bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
                 />
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 text-center">
@@ -255,7 +208,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             <button
               type="submit"
               disabled={isLoading || code.length !== 6}
-              className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium text-xs rounded-lg transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 disabled:opacity-50 text-white font-medium text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm shadow-sky-600/20 cursor-pointer"
             >
               {isLoading ? (
                 <>

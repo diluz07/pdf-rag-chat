@@ -5,7 +5,7 @@ import MessageList from './components/MessageList';
 import InputFooter from './components/InputFooter';
 import AuthModal from './components/AuthModal';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+import { BACKEND_URL } from './config';
 
 export default function App() {
   const [activeDoc, setActiveDoc] = useState(null);

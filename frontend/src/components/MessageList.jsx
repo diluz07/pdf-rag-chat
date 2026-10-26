@@ -97,8 +97,8 @@ export default function MessageList({
 
         if (isUser) {
           return (
-            <div key={index} className="flex justify-end">
-              <div className="max-w-[85%] sm:max-w-[75%] rounded-custom bg-brand-600 text-white p-4 shadow-xs text-sm leading-relaxed">
+            <div key={index} className="flex justify-end items-end space-x-2">
+              <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-br-xs bg-gradient-to-tr from-sky-600 to-cyan-600 text-white px-5 py-3.5 shadow-sm shadow-sky-600/15 text-sm leading-relaxed tracking-wide">
                 {msg.content}
               </div>
             </div>
@@ -109,11 +109,11 @@ export default function MessageList({
         if (isNotFound) {
           return (
             <div key={index} className="flex justify-start items-start space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center shrink-0 mt-1">
                 <Info className="w-4 h-4" />
               </div>
-              <div className="max-w-[88%] sm:max-w-[80%]">
-                <div className="rounded-custom bg-slate-100/90 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs">
+              <div className="max-w-[88%] sm:max-w-[82%]">
+                <div className="rounded-2xl rounded-tl-xs bg-slate-50/90 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800/80 p-5 shadow-xs">
                   <div className="flex items-start gap-3">
                     <div className="p-1 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 shrink-0 mt-0.5">
                       <Info className="w-4 h-4" />
@@ -141,12 +141,12 @@ export default function MessageList({
         // Assistant Message: Grounded Answer
         return (
           <div key={index} className="flex justify-start items-start space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 to-cyan-500 text-white flex items-center justify-center shrink-0 mt-1 shadow-sm shadow-sky-500/25">
               <Sparkles className="w-4 h-4" />
             </div>
 
-            <div className="max-w-[88%] sm:max-w-[80%] space-y-3">
-              <div className="rounded-custom bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
+            <div className="max-w-[88%] sm:max-w-[82%] space-y-3">
+              <div className="rounded-2xl rounded-tl-xs bg-white/95 dark:bg-slate-900/90 backdrop-blur-sm border border-slate-200/80 dark:border-slate-800/80 p-5 shadow-sm shadow-slate-900/5 text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
                 <div className="text-sm leading-relaxed text-slate-800 dark:text-slate-200">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
@@ -285,20 +285,20 @@ export default function MessageList({
       {/* Typing Indicator */}
       {isLoading && (
         <div className="flex justify-start items-start space-x-3">
-          <div className="w-8 h-8 rounded-lg bg-brand-600/90 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-            <Sparkles className="w-4 h-4" />
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 to-cyan-500 text-white flex items-center justify-center shrink-0 mt-1 shadow-sm shadow-sky-500/25">
+            <Sparkles className="w-4 h-4 animate-pulse" />
           </div>
-          <div className="rounded-custom bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-3 shadow-xs">
-            <div className="flex items-center space-x-2">
+          <div className="rounded-2xl rounded-tl-xs bg-white/95 dark:bg-slate-900/90 backdrop-blur-sm border border-slate-200/80 dark:border-slate-800/80 px-4 py-3 shadow-sm shadow-slate-900/5">
+            <div className="flex items-center space-x-2.5">
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                 {loadingDuration < 4
-                  ? 'DocChat is reading document chunks'
-                  : 'DocChat is writing an answer...'}
+                  ? 'Searching and reading document...'
+                  : 'Synthesizing verified answer...'}
               </span>
               <div className="flex items-center space-x-1 pl-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-brand-600 typing-dot"></div>
-                <div className="w-1.5 h-1.5 rounded-full bg-brand-600 typing-dot"></div>
-                <div className="w-1.5 h-1.5 rounded-full bg-brand-600 typing-dot"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-sky-500 typing-dot"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-sky-500 typing-dot"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-sky-500 typing-dot"></div>
               </div>
             </div>
           </div>
