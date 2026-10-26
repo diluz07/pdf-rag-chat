@@ -1,0 +1,68 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, ShieldCheck, ArrowRight } from 'lucide-react';
+
+export default function InputFooter({
+  activeDoc,
+  onSendMessage,
+  isLoading,
+}) {
+  const [input, setInput] = useState('');
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (activeDoc && !isLoading) {
+      inputRef.current?.focus();
+    }
+  }, [activeDoc, isLoading]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading || !activeDoc) return;
+    onSendMessage(input.trim());
+    setInput('');
+  };
+
+  return (
+    <footer className="p-4 sm:p-5 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0 transition-colors">
+      <div className="max-w-3xl mx-auto space-y-2">
+        <form onSubmit={handleSubmit} className="relative flex items-center">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={!activeDoc || isLoading}
+            placeholder={
+              !activeDoc
+                ? 'Upload a PDF to ask questions...'
+                : `Ask a question about ${activeDoc.filename}...`
+            }
+            className="w-full pl-4 pr-24 py-3 text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-custom text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+
+          {/* Send Button */}
+          <button
+            type="submit"
+            disabled={!input.trim() || !activeDoc || isLoading}
+            aria-label="Send query"
+            className="absolute right-2 px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+            <span>Send</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </form>
+
+        {/* Fixed Hint */}
+        <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 px-1">
+          <span className="flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400 shrink-0" />
+            <span>Answers come only from your document.</span>
+          </span>
+          <span className="hidden sm:inline">
+            Press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-mono">Enter</kbd> to submit
+          </span>
+        </div>
+      </div>
+    </footer>
+  );
+}

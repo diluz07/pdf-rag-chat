@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import UploadArea from './components/UploadArea';
-import ChatArea from './components/ChatArea';
-import InputBar from './components/InputBar';
+import Sidebar from './components/Sidebar';
+import TopBar from './components/TopBar';
+import MessageList from './components/MessageList';
+import InputFooter from './components/InputFooter';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -10,25 +10,28 @@ export default function App() {
   const [activeDoc, setActiveDoc] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState('');
   const [serverStatus, setServerStatus] = useState('checking');
-  const [isBooting, setIsBooting] = useState(false);
-  const [threshold, setThreshold] = useState(0.35);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  // Check backend server health on mount & interval
+  // Sync dark mode class on <html>
   useEffect(() => {
-    let bootingTimeout;
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
+  // Server health check
+  useEffect(() => {
     const checkHealth = async () => {
       try {
-        bootingTimeout = setTimeout(() => {
-          setIsBooting(true);
-        }, 3000);
-
         const res = await fetch(`${BACKEND_URL}/health`);
         if (res.ok) {
-          clearTimeout(bootingTimeout);
           setServerStatus('online');
-          setIsBooting(false);
         } else {
           setServerStatus('offline');
         }
@@ -38,20 +41,51 @@ export default function App() {
     };
 
     checkHealth();
-    const interval = setInterval(checkHealth, 30000);
-    return () => {
-      clearInterval(interval);
-      clearTimeout(bootingTimeout);
-    };
+    const interval = setInterval(checkHealth, 25000);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleUploadSuccess = (docData) => {
-    setActiveDoc(docData);
-    setMessages([]);
+  const handleUploadFile = async (file) => {
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Only .pdf files are supported.');
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      alert('File exceeds 15 MB limit.');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgressText('Uploading document...');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setUploadProgressText('Extracting vectors & indexing...');
+      const response = await fetch(`${BACKEND_URL}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Upload failed');
+      }
+
+      const data = await response.json();
+      setActiveDoc(data);
+      setMessages([]);
+      setIsMobileSidebarOpen(false);
+    } catch (err) {
+      alert(`Upload error: ${err.message}`);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
-  const handleResetDocument = () => {
-    if (confirm('Upload a new document? Current conversation will be reset.')) {
+  const handleRemoveDoc = () => {
+    if (confirm('Remove current document and start a new session?')) {
       setActiveDoc(null);
       setMessages([]);
     }
@@ -60,14 +94,11 @@ export default function App() {
   const handleSendMessage = async (userText) => {
     if (!activeDoc || !userText.trim()) return;
 
-    // Add user message to UI immediately
     const userMsg = { role: 'user', content: userText };
-    const updatedMessages = [...messages, userMsg];
-    setMessages(updatedMessages);
+    setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
 
     try {
-      // Build history for follow-up questions
       const historyPayload = messages.map((m) => ({
         role: m.role,
         content: m.content,
@@ -80,90 +111,89 @@ export default function App() {
           doc_id: activeDoc.doc_id,
           question: userText,
           history: historyPayload,
-          similarity_threshold: threshold,
+          similarity_threshold: 0.35,
         }),
       });
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Query failed with status ${res.status}`);
+        throw new Error(errorData.detail || 'Query failed');
       }
 
       const data = await res.json();
-
       const botMsg = {
         role: 'assistant',
         content: data.answer,
         sources: data.sources || [],
         grounded: data.grounded,
         provider: data.provider,
-        gated: data.gated,
       };
 
       setMessages((prev) => [...prev, botMsg]);
     } catch (err) {
-      const errorMsg = {
-        role: 'assistant',
-        content: `Error: ${err.message || 'Failed to generate response. Please check your connection or re-upload your document.'}`,
-        sources: [],
-        grounded: false,
-        provider: 'error',
-      };
-      setMessages((prev) => [...prev, errorMsg]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `Error: ${err.message || 'Unable to process query.'}`,
+          sources: [],
+          grounded: false,
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleClearChat = () => {
-    if (confirm('Clear conversation history?')) {
+    if (confirm('Clear current conversation?')) {
       setMessages([]);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
-      {/* Top Header */}
-      <Header
-        serverStatus={serverStatus}
-        activeDoc={activeDoc}
-        onResetDocument={handleResetDocument}
-        isBooting={isBooting}
-      />
+    <div className="h-screen w-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased overflow-hidden transition-colors duration-200">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        {/* Left Sidebar (320px) */}
+        <Sidebar
+          activeDoc={activeDoc}
+          isUploading={isUploading}
+          uploadProgressText={uploadProgressText}
+          onUploadFile={handleUploadFile}
+          onRemoveDoc={handleRemoveDoc}
+          serverStatus={serverStatus}
+          isMobileOpen={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        />
 
-      {/* Main Body */}
-      <main className="flex-1 flex flex-col items-center justify-between overflow-hidden relative">
-        {/* Ambient Lighting Gradients */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -z-10" />
-        <div className="absolute bottom-10 left-1/3 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none -z-10" />
+        {/* Right Main Panel */}
+        <main className="flex-1 flex flex-col bg-slate-50/50 dark:bg-slate-950/60 min-w-0 h-full overflow-hidden">
+          <TopBar
+            activeDoc={activeDoc}
+            onClearChat={handleClearChat}
+            isDarkMode={isDarkMode}
+            onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+            onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+          />
 
-        {!activeDoc ? (
-          <div className="flex-1 flex items-center justify-center w-full">
-            <UploadArea
-              onUploadSuccess={handleUploadSuccess}
-              backendUrl={BACKEND_URL}
-            />
-          </div>
-        ) : (
-          <div className="flex-1 flex flex-col w-full h-full overflow-hidden">
-            <ChatArea
+          {/* Scrollable Message List / Canvas */}
+          <div className="flex-1 overflow-y-auto">
+            <MessageList
+              activeDoc={activeDoc}
               messages={messages}
               isLoading={isLoading}
-              activeDoc={activeDoc}
-              onSelectPrompt={(prompt) => handleSendMessage(prompt)}
-            />
-
-            <InputBar
-              onSendMessage={handleSendMessage}
-              isLoading={isLoading}
-              disabled={!activeDoc}
-              onClearChat={handleClearChat}
-              threshold={threshold}
-              setThreshold={setThreshold}
+              onSelectPrompt={handleSendMessage}
             />
           </div>
-        )}
-      </main>
+
+          {/* Fixed Bottom Input Bar */}
+          <InputFooter
+            activeDoc={activeDoc}
+            onSendMessage={handleSendMessage}
+            isLoading={isLoading}
+          />
+        </main>
+      </div>
     </div>
   );
 }
