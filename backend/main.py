@@ -222,11 +222,11 @@ def query_document(req: QueryRequest):
             llm=llm,
         )
 
-    # 2. Retrieve top-5 relevant chunks with scores
+    # 2. Retrieve top relevant chunks with scores (expanded to 7 for comprehensive coverage)
     chunks_with_scores = retrieve_relevant_chunks(
         doc_id=req.doc_id,
         query=search_query,
-        top_k=5,
+        top_k=7,
     )
 
     # 3. RAG generation and grounding enforcement
