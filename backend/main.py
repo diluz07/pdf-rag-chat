@@ -5,7 +5,7 @@ import uuid
 import shutil
 import logging
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, UploadFile, File, HTTPException, status
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
@@ -68,6 +68,9 @@ class QueryRequest(BaseModel):
     similarity_threshold: Optional[float] = Field(
         default=0.35, description="Minimum cosine similarity threshold to trigger LLM"
     )
+    user_email: Optional[str] = Field(
+        default=None, description="Email of the authenticated user"
+    )
 
 
 class SourceSnippet(BaseModel):
@@ -107,7 +110,7 @@ def health_check():
 
 
 @app.post("/upload", response_model=UploadResponse, tags=["Document Ingestion"])
-async def upload_pdf(file: UploadFile = File(...)):
+async def upload_pdf(file: UploadFile = File(...), user_email: Optional[str] = Form(None)):
     """
     Accepts a single PDF file, extracts text page-by-page (with OCR fallback for scanned pages),
     chunks content with page metadata, embeds into ChromaDB, and returns a doc_id.

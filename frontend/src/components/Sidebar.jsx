@@ -7,6 +7,8 @@ import {
   ShieldCheck,
   Loader2,
   Sparkles,
+  Lock,
+  Mail,
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -18,17 +20,27 @@ export default function Sidebar({
   serverStatus,
   isMobileOpen,
   onCloseMobile,
+  user,
+  onOpenAuthModal,
 }) {
   const fileInputRef = useRef(null);
 
   const handleDrop = (e) => {
     e.preventDefault();
+    if (!user) {
+      onOpenAuthModal?.();
+      return;
+    }
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       onUploadFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleSelect = (e) => {
+    if (!user) {
+      onOpenAuthModal?.();
+      return;
+    }
     if (e.target.files && e.target.files.length > 0) {
       onUploadFile(e.target.files[0]);
     }
@@ -63,42 +75,81 @@ export default function Sidebar({
       {/* Main Sidebar Content Area */}
       <div className="p-5 flex-1 flex flex-col space-y-4">
         
-        {/* State 1: Upload Zone (when no active doc) */}
-        {!activeDoc && !isUploading && (
+        {/* State 0: Unauthenticated Mandatory Gate */}
+        {!user ? (
           <div className="flex flex-col">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 block">
               Upload Document
             </label>
             <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className="group relative border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 rounded-custom p-6 text-center cursor-pointer transition-all bg-slate-50/60 hover:bg-brand-50/20 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 flex flex-col items-center justify-center min-h-[190px]"
+              onClick={onOpenAuthModal}
+              className="group relative border-2 border-dashed border-sky-300 dark:border-sky-800/80 hover:border-sky-500 dark:hover:border-sky-400 rounded-custom p-6 text-center cursor-pointer transition-all bg-sky-50/50 hover:bg-sky-100/40 dark:bg-sky-950/20 dark:hover:bg-sky-950/40 flex flex-col items-center justify-center min-h-[200px]"
             >
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleSelect}
-                accept=".pdf,application/pdf"
-                className="hidden"
-              />
-              <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 group-hover:bg-brand-100 dark:group-hover:bg-brand-900/40 text-slate-500 group-hover:text-brand-600 dark:text-slate-400 dark:group-hover:text-brand-400 flex items-center justify-center mb-3 transition-colors">
-                <UploadCloud className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                <Lock className="w-5 h-5" />
               </div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                <span className="text-brand-600 dark:text-brand-400">Click to upload</span> or drag and drop
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                Sign-In Required
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
-                Accepts <span className="text-slate-700 dark:text-slate-300 font-semibold">.pdf</span> only
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                Email verification is mandatory to unlock document indexing & AI query generation.
               </p>
-              <span className="inline-block mt-3 text-[11px] font-medium text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800/90 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700">
-                Max file size 30 MB
-              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenAuthModal?.();
+                }}
+                className="mt-4 px-4 py-2 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-sky-600/20 cursor-pointer"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>Sign In with Email</span>
+              </button>
             </div>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-2 text-center">
-              Your document remains private and is only used to answer questions during this session.
+              Enter your email to receive an instant 6-digit access code.
             </p>
           </div>
+        ) : (
+          <>
+            {/* State 1: Upload Zone (when user logged in and no active doc) */}
+            {!activeDoc && !isUploading && (
+              <div className="flex flex-col">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 block">
+                  Upload Document
+                </label>
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="group relative border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 rounded-custom p-6 text-center cursor-pointer transition-all bg-slate-50/60 hover:bg-brand-50/20 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 flex flex-col items-center justify-center min-h-[190px]"
+                >
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleSelect}
+                    accept=".pdf,application/pdf"
+                    className="hidden"
+                  />
+                  <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 group-hover:bg-brand-100 dark:group-hover:bg-brand-900/40 text-slate-500 group-hover:text-brand-600 dark:text-slate-400 dark:group-hover:text-brand-400 flex items-center justify-center mb-3 transition-colors">
+                    <UploadCloud className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    <span className="text-brand-600 dark:text-brand-400">Click to upload</span> or drag and drop
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
+                    Accepts <span className="text-slate-700 dark:text-slate-300 font-semibold">.pdf</span> only
+                  </p>
+                  <span className="inline-block mt-3 text-[11px] font-medium text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800/90 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                    Max file size 30 MB
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-2 text-center">
+                  Your document remains private and is only used to answer questions during this session.
+                </p>
+              </div>
+            )}
+          </>
         )}
 
         {/* State 2: Processing / Embedding State */}

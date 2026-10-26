@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, KeyRound, ArrowRight, X, Sparkles, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Mail, KeyRound, ArrowRight, X, Sparkles, CheckCircle2, AlertCircle, RefreshCw, Lock } from 'lucide-react';
 
 import { BACKEND_URL } from '../config';
 
-export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
+export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory = false }) {
   const [step, setStep] = useState('email'); // 'email' | 'code'
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -89,27 +89,43 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div 
+      onClick={(e) => {
+        if (!isMandatory && e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+    >
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-          aria-label="Close dialog"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* Close Button (Hidden if mandatory) */}
+        {!isMandatory && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Close dialog"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
 
         {/* Modal Header */}
         <div className="text-center mb-6">
           <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-sky-500 to-cyan-500 text-white flex items-center justify-center shadow-md shadow-sky-500/20">
-            <Mail className="w-6 h-6" />
+            {isMandatory ? <Lock className="w-6 h-6" /> : <Mail className="w-6 h-6" />}
           </div>
+          {isMandatory && (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/80 border border-sky-200 dark:border-sky-800 text-[11px] font-semibold text-sky-600 dark:text-sky-400 mb-2">
+              <Lock className="w-3 h-3" /> Mandatory Sign-In
+            </div>
+          )}
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-            Sign in with Email
+            {isMandatory ? 'Sign in to DocChat' : 'Sign in with Email'}
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            We will send a 6-digit verification code to your email
+            {isMandatory 
+              ? 'Email verification is required to upload PDFs and ask questions.' 
+              : 'We will send a 6-digit verification code to your email'}
           </p>
         </div>
 

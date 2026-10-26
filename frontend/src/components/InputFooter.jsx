@@ -5,21 +5,33 @@ export default function InputFooter({
   activeDoc,
   onSendMessage,
   isLoading,
+  user,
+  onOpenAuthModal,
 }) {
   const [input, setInput] = useState('');
   const inputRef = useRef(null);
 
   useEffect(() => {
-    if (activeDoc && !isLoading) {
+    if (user && activeDoc && !isLoading) {
       inputRef.current?.focus();
     }
-  }, [activeDoc, isLoading]);
+  }, [user, activeDoc, isLoading]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!user) {
+      onOpenAuthModal?.();
+      return;
+    }
     if (!input.trim() || isLoading || !activeDoc) return;
     onSendMessage(input.trim());
     setInput('');
+  };
+
+  const handleInputClick = () => {
+    if (!user) {
+      onOpenAuthModal?.();
+    }
   };
 
   return (
@@ -30,24 +42,30 @@ export default function InputFooter({
             ref={inputRef}
             type="text"
             value={input}
+            onClick={handleInputClick}
             onChange={(e) => setInput(e.target.value)}
-            disabled={!activeDoc || isLoading}
+            disabled={(!user ? false : !activeDoc) || isLoading}
+            readOnly={!user}
             placeholder={
-              !activeDoc
+              !user
+                ? 'Please sign in with your email to ask questions...'
+                : !activeDoc
                 ? 'Upload a PDF to ask questions...'
                 : `Ask a question about ${activeDoc.filename}...`
             }
-            className="w-full pl-4 pr-24 py-3 text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-300/80 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`w-full pl-4 pr-24 py-3 text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-300/80 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all shadow-xs ${
+              !user ? 'cursor-pointer' : 'disabled:opacity-50 disabled:cursor-not-allowed'
+            }`}
           />
 
           {/* Send Button */}
           <button
             type="submit"
-            disabled={!input.trim() || !activeDoc || isLoading}
+            disabled={!user ? false : !input.trim() || !activeDoc || isLoading}
             aria-label="Send query"
-            className="absolute right-2 px-3.5 py-1.5 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 active:opacity-90 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shadow-sky-600/20 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-500"
+            className="absolute right-2 px-3.5 py-1.5 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 active:opacity-90 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shadow-sky-600/20 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer"
           >
-            <span>Send</span>
+            <span>{!user ? 'Sign In' : 'Send'}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </form>

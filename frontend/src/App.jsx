@@ -34,16 +34,27 @@ export default function App() {
       return null;
     }
   });
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem('documind_user');
+      return !saved;
+    } catch {
+      return true;
+    }
+  });
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     localStorage.setItem('documind_user', JSON.stringify(userData));
+    setIsAuthModalOpen(false);
   };
 
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem('documind_user');
+    setActiveDoc(null);
+    setMessages([]);
+    setIsAuthModalOpen(true);
   };
 
   // Sync dark mode class on <html> and save to localStorage
@@ -82,6 +93,11 @@ export default function App() {
   }, []);
 
   const handleUploadFile = async (file) => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       alert('Only .pdf files are supported.');
       return;
@@ -96,6 +112,9 @@ export default function App() {
 
     const formData = new FormData();
     formData.append('file', file);
+    if (user?.email) {
+      formData.append('user_email', user.email);
+    }
 
     try {
       setUploadProgressText('Extracting vectors & indexing...');
@@ -114,7 +133,7 @@ export default function App() {
       setMessages([]);
       setIsMobileSidebarOpen(false);
     } catch (err) {
-      alert(`Upload error: ${err.message}`);
+      alert(`Upload error: ${err.message}\n(Backend endpoint: ${BACKEND_URL}/upload)`);
     } finally {
       setIsUploading(false);
     }
@@ -128,6 +147,10 @@ export default function App() {
   };
 
   const handleSendMessage = async (userText) => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     if (!activeDoc || !userText.trim()) return;
 
     const userMsg = { role: 'user', content: userText };
@@ -148,6 +171,7 @@ export default function App() {
           question: userText,
           history: historyPayload,
           similarity_threshold: 0.35,
+          user_email: user?.email || undefined,
         }),
       });
 
@@ -200,6 +224,8 @@ export default function App() {
           serverStatus={serverStatus}
           isMobileOpen={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
+          user={user}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
         />
 
         {/* Right Main Panel */}
@@ -221,6 +247,8 @@ export default function App() {
               messages={messages}
               isLoading={isLoading}
               onSelectPrompt={handleSendMessage}
+              user={user}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
             />
           </div>
 
@@ -228,15 +256,22 @@ export default function App() {
             activeDoc={activeDoc}
             onSendMessage={handleSendMessage}
             isLoading={isLoading}
+            user={user}
+            onOpenAuthModal={() => setIsAuthModalOpen(true)}
           />
         </main>
       </div>
 
-      {/* Authentication Modal */}
+      {/* Authentication Modal - Mandatory when no active session */}
       <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
+        isOpen={isAuthModalOpen || !user}
+        onClose={() => {
+          if (user) {
+            setIsAuthModalOpen(false);
+          }
+        }}
         onLoginSuccess={handleLoginSuccess}
+        isMandatory={!user}
       />
     </div>
   );

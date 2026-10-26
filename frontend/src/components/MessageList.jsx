@@ -7,6 +7,10 @@ import {
   ChevronUp,
   Sparkles,
   Info,
+  Lock,
+  Mail,
+  ArrowRight,
+  ShieldCheck,
 } from 'lucide-react';
 
 export default function MessageList({
@@ -14,6 +18,8 @@ export default function MessageList({
   messages,
   isLoading,
   onSelectPrompt,
+  user,
+  onOpenAuthModal,
 }) {
   const [expandedSources, setExpandedSources] = useState({});
   const [highlightedSource, setHighlightedSource] = useState(null);
@@ -61,6 +67,34 @@ export default function MessageList({
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   };
+
+  // 0. MANDATORY AUTH STATE (User not logged in)
+  if (!user) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto py-12 px-4 select-none">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-600 to-cyan-500 text-white flex items-center justify-center mb-4 shadow-lg shadow-sky-500/25">
+          <Lock className="w-8 h-8" />
+        </div>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 text-xs font-semibold text-sky-600 dark:text-sky-400 mb-3">
+          Sign-In Mandatory
+        </div>
+        <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+          Welcome to DocChat
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed max-w-sm">
+          Please authenticate with your email to upload documents, ask grounded questions with Groq AI, and view citations.
+        </p>
+        <button
+          onClick={onOpenAuthModal}
+          className="mt-6 px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white font-semibold text-xs flex items-center gap-2 shadow-md shadow-sky-600/25 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+        >
+          <Mail className="w-4 h-4" />
+          <span>Sign In with Email</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
 
   // 1. EMPTY STATE (No PDF loaded)
   if (!activeDoc) {
