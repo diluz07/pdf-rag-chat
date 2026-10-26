@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, RotateCcw, Sun, Moon, Menu } from 'lucide-react';
+import { MessageSquare, RotateCcw, Sun, Moon, Menu, LogIn, LogOut, User as UserIcon } from 'lucide-react';
 
 export default function TopBar({
   activeDoc,
@@ -7,6 +7,9 @@ export default function TopBar({
   isDarkMode,
   onToggleTheme,
   onToggleMobileSidebar,
+  user,
+  onOpenAuthModal,
+  onLogout,
 }) {
   return (
     <header className="h-14 px-4 sm:px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 z-10 transition-colors">
@@ -67,6 +70,48 @@ export default function TopBar({
           )}
           <span className="text-[11px] hidden sm:inline">{isDarkMode ? 'Dark' : 'Light'}</span>
         </button>
+
+        {/* Authentication: User Profile or Sign In */}
+        <div className="pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-800 flex items-center">
+          {user ? (
+            <div className="flex items-center gap-2">
+              {user.picture ? (
+                <img
+                  src={user.picture}
+                  alt={user.name}
+                  className="w-7 h-7 rounded-full border border-slate-300 dark:border-slate-700 object-cover"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-brand-600 text-white font-semibold text-xs flex items-center justify-center uppercase shadow-xs">
+                  {user.name ? user.name.charAt(0) : 'U'}
+                </div>
+              )}
+              <div className="hidden md:flex flex-col text-left">
+                <span className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate max-w-[120px]">
+                  {user.name}
+                </span>
+                <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
+                  {user.email}
+                </span>
+              </div>
+              <button
+                onClick={onLogout}
+                title="Sign out"
+                className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ml-0.5"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onOpenAuthModal}
+              className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );

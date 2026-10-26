@@ -273,6 +273,134 @@ def remove_document(doc_id: str):
     return {"doc_id": doc_id, "deleted": deleted}
 
 
+# ──────────────────────── Authentication Endpoints ────────────────────────
+from auth import (
+    otp_store,
+    user_store,
+    generate_otp,
+    send_email_otp,
+    verify_google_credential,
+    OTP_EXPIRY_SECONDS,
+)
+
+
+class SendOtpRequest(BaseModel):
+    email: str
+
+
+class VerifyOtpRequest(BaseModel):
+    email: str
+    code: str
+
+
+class GoogleAuthRequest(BaseModel):
+    credential: str
+
+
+@app.post("/auth/send-otp", tags=["Authentication"])
+def request_email_otp(req: SendOtpRequest):
+    """Generates and dispatches a 6-digit OTP code to the provided email."""
+    email = req.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please provide a valid email address.",
+        )
+
+    code = generate_otp()
+    otp_store[email] = {
+        "code": code,
+        "expires_at": time.time() + OTP_EXPIRY_SECONDS,
+        "attempts": 0,
+    }
+
+    send_email_otp(email, code)
+    return {
+        "success": True,
+        "email": email,
+        "message": f"Verification code sent to {email}.",
+    }
+
+
+@app.post("/auth/verify-otp", tags=["Authentication"])
+def verify_email_otp(req: VerifyOtpRequest):
+    """Verifies the 6-digit OTP and authenticates the user."""
+    email = req.email.strip().lower()
+    code = req.code.strip()
+
+    entry = otp_store.get(email)
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No verification code was requested for this email, or it has already been used.",
+        )
+
+    if time.time() > entry["expires_at"]:
+        del otp_store[email]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This verification code has expired. Please request a new one.",
+        )
+
+    if entry["attempts"] >= 5:
+        del otp_store[email]
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many invalid attempts. Please request a fresh code.",
+        )
+
+    if entry["code"] != code:
+        entry["attempts"] += 1
+        remaining = 5 - entry["attempts"]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Incorrect verification code. {remaining} attempt(s) remaining.",
+        )
+
+    # Valid! Clean up used OTP
+    del otp_store[email]
+
+    user_info = {
+        "sub": f"email_{email}",
+        "email": email,
+        "name": email.split("@")[0].capitalize(),
+        "picture": "",
+        "auth_provider": "email_otp",
+        "created_at": time.time(),
+    }
+    user_store[email] = user_info
+
+    return {
+        "success": True,
+        "user": user_info,
+        "message": "Successfully authenticated via email OTP.",
+    }
+
+
+@app.post("/auth/google", tags=["Authentication"])
+def authenticate_google(req: GoogleAuthRequest):
+    """Validates Google OAuth JWT token and returns authenticated user profile."""
+    if not req.credential:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing Google credential token.",
+        )
+
+    user_profile = verify_google_credential(req.credential)
+    if not user_profile:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired Google credential token.",
+        )
+
+    return {
+        "success": True,
+        "user": user_profile,
+        "message": "Successfully authenticated via Google.",
+    }
+
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))

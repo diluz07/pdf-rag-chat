@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import MessageList from './components/MessageList';
 import InputFooter from './components/InputFooter';
+import AuthModal from './components/AuthModal';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -15,6 +16,25 @@ export default function App() {
   const [serverStatus, setServerStatus] = useState('checking');
   const [isDarkMode, setIsDarkMode] = useState(true); // Default to sleek dark mode
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('documind_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const handleLoginSuccess = (userData) => {
+    setUser(userData);
+    localStorage.setItem('documind_user', JSON.stringify(userData));
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('documind_user');
+  };
 
   // Sync dark mode class on <html>
   useEffect(() => {
@@ -174,6 +194,9 @@ export default function App() {
             isDarkMode={isDarkMode}
             onToggleTheme={() => setIsDarkMode(!isDarkMode)}
             onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+            user={user}
+            onOpenAuthModal={() => setIsAuthModalOpen(true)}
+            onLogout={handleLogout}
           />
 
           <div className="flex-1 overflow-y-auto">
@@ -192,6 +215,13 @@ export default function App() {
           />
         </main>
       </div>
+
+      {/* Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
     </div>
   );
 }
