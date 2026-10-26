@@ -86,8 +86,8 @@ export default function App() {
       alert('Only .pdf files are supported.');
       return;
     }
-    if (file.size > 15 * 1024 * 1024) {
-      alert('File exceeds 15 MB limit.');
+    if (file.size > 30 * 1024 * 1024) {
+      alert('File exceeds 30 MB limit.');
       return;
     }
 

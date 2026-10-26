@@ -92,7 +92,7 @@ export default function Sidebar({
                 Accepts <span className="text-slate-700 dark:text-slate-300 font-semibold">.pdf</span> only
               </p>
               <span className="inline-block mt-3 text-[11px] font-medium text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800/90 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700">
-                Max file size 15 MB
+                Max file size 30 MB
               </span>
             </div>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-2 text-center">

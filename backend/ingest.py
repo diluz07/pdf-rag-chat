@@ -41,20 +41,23 @@ def extract_text_and_pages(pdf_path: str) -> List[Tuple[int, str]]:
         else:
             pages_data.append((page_num, cleaned_text))
 
-    # If any pages were deemed empty/scanned and OCR is available, run OCR fallback
+    # If any pages were deemed empty/scanned and OCR is available, run single-page OCR fallback safely
     if scanned_pages_indices and OCR_AVAILABLE:
-        try:
-            logger.info(f"Attempting OCR on {len(scanned_pages_indices)} scanned/low-text pages...")
-            images = convert_from_path(pdf_path)
-            for idx in scanned_pages_indices:
-                if idx < len(images):
-                    ocr_text = pytesseract.image_to_string(images[idx]).strip()
+        # Cap OCR attempts to first 5 low-text pages to prevent timeouts on low-CPU cloud instances
+        target_indices = scanned_pages_indices[:5]
+        logger.info(f"Attempting low-memory single-page OCR on {len(target_indices)} pages...")
+        for idx in target_indices:
+            try:
+                # Convert ONLY the single target page to prevent 512MB RAM exhaustion
+                images = convert_from_path(pdf_path, first_page=idx + 1, last_page=idx + 1)
+                if images:
+                    ocr_text = pytesseract.image_to_string(images[0]).strip()
                     if ocr_text:
-                        # Replace or augment if OCR yielded real text
                         pages_data[idx] = (idx + 1, ocr_text)
                         logger.info(f"OCR successfully extracted text from Page {idx + 1}")
-        except Exception as ocr_err:
-            logger.warning(f"OCR fallback encountered an error: {ocr_err}")
+                    del images
+            except Exception as ocr_err:
+                logger.warning(f"Single-page OCR failed on page {idx + 1}: {ocr_err}")
 
     return pages_data
 

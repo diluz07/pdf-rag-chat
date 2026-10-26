@@ -1,4 +1,5 @@
 import os
+import asyncio
 import time
 import uuid
 import shutil
@@ -53,7 +54,7 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 document_registry: Dict[str, Dict[str, Any]] = {}
 
 # Constants
-MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024  # 15 MB
+MAX_FILE_SIZE_BYTES = 30 * 1024 * 1024  # 30 MB
 START_TIME = time.time()
 
 
@@ -130,18 +131,19 @@ async def upload_pdf(file: UploadFile = File(...)):
                 if size_counter > MAX_FILE_SIZE_BYTES:
                     raise HTTPException(
                         status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail="File exceeds maximum allowed size of 15 MB.",
+                        detail="File exceeds maximum allowed size of 30 MB.",
                     )
                 buffer.write(chunk)
 
-        logger.info(f"Received file: {file.filename} ({size_counter} bytes). Processing...")
+        logger.info(f"Received file: {file.filename} ({size_counter} bytes). Processing in background thread...")
 
-        # Extract and chunk
-        chunks, total_pages = process_pdf_file(
-            file_path=temp_file_path,
-            source_filename=file.filename,
-            chunk_size=1000,
-            chunk_overlap=200,
+        # Extract and chunk in background thread so Render health-checks are not blocked
+        chunks, total_pages = await asyncio.to_thread(
+            process_pdf_file,
+            temp_file_path,
+            file.filename,
+            1000,
+            200,
         )
 
         if not chunks:
@@ -150,8 +152,12 @@ async def upload_pdf(file: UploadFile = File(...)):
                 detail="Unable to extract any readable text from this PDF. Please check if the document contains readable text or high-quality scans.",
             )
 
-        # Store chunks in ChromaDB
-        chunks_count = store_chunks(doc_id=doc_id, chunks=chunks)
+        # Store chunks in ChromaDB in background thread
+        chunks_count = await asyncio.to_thread(
+            store_chunks,
+            doc_id,
+            chunks,
+        )
 
         # Register document
         document_registry[doc_id] = {
