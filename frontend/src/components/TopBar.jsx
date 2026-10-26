@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, RotateCcw, Sun, Moon, Menu, Sparkles } from 'lucide-react';
+import { MessageSquare, RotateCcw, Sun, Moon, Menu } from 'lucide-react';
 
 export default function TopBar({
   activeDoc,
@@ -7,8 +7,6 @@ export default function TopBar({
   isDarkMode,
   onToggleTheme,
   onToggleMobileSidebar,
-  viewMode,
-  onToggleViewMode,
 }) {
   return (
     <header className="h-14 px-4 sm:px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 z-10 transition-colors">
@@ -45,45 +43,8 @@ export default function TopBar({
 
       {/* Action Controls */}
       <div className="flex items-center space-x-2">
-        {/* View Mode Toggle: Classic Chat vs Thinking Orb vs Gateway Flow */}
-        <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
-          <button
-            onClick={() => onToggleViewMode('chat')}
-            className={`px-2 py-1 rounded-md transition-all font-medium flex items-center gap-1 ${
-              viewMode === 'chat'
-                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <MessageSquare className="w-3 h-3" />
-            <span className="hidden sm:inline">Chat</span>
-          </button>
-          <button
-            onClick={() => onToggleViewMode('orb')}
-            className={`px-2 py-1 rounded-md transition-all font-medium flex items-center gap-1 ${
-              viewMode === 'orb'
-                ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <Sparkles className="w-3 h-3" />
-            <span className="hidden sm:inline">Orb</span>
-          </button>
-          <button
-            onClick={() => onToggleViewMode('gateway')}
-            className={`px-2 py-1 rounded-md transition-all font-medium flex items-center gap-1 ${
-              viewMode === 'gateway'
-                ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
-            <span className="hidden sm:inline">Gateway</span>
-          </button>
-        </div>
-
         {/* Clear Chat */}
-        {activeDoc && viewMode === 'chat' && (
+        {activeDoc && (
           <button
             onClick={onClearChat}
             title="Clear conversation"
