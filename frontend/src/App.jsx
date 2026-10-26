@@ -329,7 +329,6 @@ export default function App() {
             isLoading={isLoading}
             user={user}
             onOpenAuthModal={() => setIsAuthModalOpen(true)}
-            onTriggerUpload={triggerUpload}
           />
         </main>
       </div>

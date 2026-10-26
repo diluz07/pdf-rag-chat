@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, ShieldCheck, ArrowRight, Paperclip } from 'lucide-react';
+import { Send, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export default function InputFooter({
   activeDoc,
@@ -7,7 +7,6 @@ export default function InputFooter({
   isLoading,
   user,
   onOpenAuthModal,
-  onTriggerUpload,
 }) {
   const [input, setInput] = useState('');
   const inputRef = useRef(null);
@@ -39,16 +38,6 @@ export default function InputFooter({
     <footer className="p-4 sm:p-5 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0 transition-colors">
       <div className="max-w-3xl mx-auto space-y-2">
         <form onSubmit={handleSubmit} className="relative flex items-center">
-          {/* Paperclip attachment button */}
-          <button
-            type="button"
-            onClick={onTriggerUpload}
-            title={activeDoc ? "Change attached document" : "Attach PDF document"}
-            className="p-2 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors mr-1 cursor-pointer shrink-0"
-          >
-            <Paperclip className="w-4 h-4" />
-          </button>
-
           <input
             ref={inputRef}
             type="text"
