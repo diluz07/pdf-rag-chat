@@ -97,6 +97,18 @@ class UploadResponse(BaseModel):
 
 
 # Endpoints
+@app.on_event("startup")
+async def startup_warmup():
+    """Pre-warm embedding model in RAM on boot so uploads don't freeze or timeout."""
+    try:
+        logger.info("Pre-warming FastEmbed model in RAM...")
+        from retriever import get_embeddings
+        await asyncio.to_thread(get_embeddings)
+        logger.info("FastEmbed model ready in RAM.")
+    except Exception as e:
+        logger.warning(f"FastEmbed model pre-warm non-fatal notice: {e}")
+
+
 @app.get("/health", tags=["System"])
 def health_check():
     """Health status and cold-start detector."""

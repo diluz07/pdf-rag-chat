@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { UploadCloud } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import MessageList from './components/MessageList';
@@ -13,6 +14,8 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState('');
+  const [isDragOverMain, setIsDragOverMain] = useState(false);
+  const globalFileInputRef = useRef(null);
   const [serverStatus, setServerStatus] = useState('checking');
   const [isDarkMode, setIsDarkMode] = useState(() => {
     try {
@@ -211,8 +214,55 @@ export default function App() {
     }
   };
 
+  const triggerUpload = () => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    globalFileInputRef.current?.click();
+  };
+
+  const handleMainDragOver = (e) => {
+    e.preventDefault();
+    if (!isUploading) {
+      setIsDragOverMain(true);
+    }
+  };
+
+  const handleMainDragLeave = (e) => {
+    // Only deactivate if leaving the main container
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    setIsDragOverMain(false);
+  };
+
+  const handleMainDrop = (e) => {
+    e.preventDefault();
+    setIsDragOverMain(false);
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleUploadFile(e.dataTransfer.files[0]);
+    }
+  };
+
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased overflow-hidden transition-colors duration-200">
+      {/* Hidden global file input triggered by central button or paperclip */}
+      <input
+        type="file"
+        ref={globalFileInputRef}
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            handleUploadFile(e.target.files[0]);
+            e.target.value = '';
+          }
+        }}
+        accept=".pdf,application/pdf"
+        className="hidden"
+      />
+
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         {/* Left Sidebar (320px) */}
         <Sidebar
@@ -229,7 +279,27 @@ export default function App() {
         />
 
         {/* Right Main Panel */}
-        <main className="flex-1 flex flex-col bg-slate-50/50 dark:bg-slate-950/60 min-w-0 h-full overflow-hidden relative">
+        <main
+          onDragOver={handleMainDragOver}
+          onDragLeave={handleMainDragLeave}
+          onDrop={handleMainDrop}
+          className="flex-1 flex flex-col bg-slate-50/50 dark:bg-slate-950/60 min-w-0 h-full overflow-hidden relative"
+        >
+          {/* Drag & Drop Full-screen Overlay */}
+          {isDragOverMain && (
+            <div className="absolute inset-0 z-40 bg-sky-600/10 dark:bg-sky-500/15 backdrop-blur-xs border-2 border-dashed border-sky-500 flex flex-col items-center justify-center p-6 pointer-events-none animate-in fade-in duration-150">
+              <div className="w-16 h-16 rounded-2xl bg-sky-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/30 mb-3 animate-bounce">
+                <UploadCloud className="w-8 h-8" />
+              </div>
+              <p className="text-base font-bold text-slate-900 dark:text-white">
+                Drop your PDF here
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Release to upload and begin analyzing
+              </p>
+            </div>
+          )}
+
           <TopBar
             activeDoc={activeDoc}
             onClearChat={handleClearChat}
@@ -249,6 +319,7 @@ export default function App() {
               onSelectPrompt={handleSendMessage}
               user={user}
               onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              onTriggerUpload={triggerUpload}
             />
           </div>
 
@@ -258,6 +329,7 @@ export default function App() {
             isLoading={isLoading}
             user={user}
             onOpenAuthModal={() => setIsAuthModalOpen(true)}
+            onTriggerUpload={triggerUpload}
           />
         </main>
       </div>

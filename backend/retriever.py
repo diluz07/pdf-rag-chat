@@ -25,7 +25,6 @@ def get_embeddings() -> FastEmbedEmbeddings:
         logger.info("Initializing FastEmbed BAAI/bge-small-en-v1.5 embeddings...")
         _embeddings_instance = FastEmbedEmbeddings(
             model_name="BAAI/bge-small-en-v1.5",
-            cache_dir=FASTEMBED_CACHE_DIR,
         )
     return _embeddings_instance
 

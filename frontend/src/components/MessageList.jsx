@@ -11,6 +11,7 @@ import {
   Mail,
   ArrowRight,
   ShieldCheck,
+  UploadCloud,
 } from 'lucide-react';
 
 export default function MessageList({
@@ -20,6 +21,7 @@ export default function MessageList({
   onSelectPrompt,
   user,
   onOpenAuthModal,
+  onTriggerUpload,
 }) {
   const [expandedSources, setExpandedSources] = useState({});
   const [highlightedSource, setHighlightedSource] = useState(null);
@@ -101,7 +103,10 @@ export default function MessageList({
   if (!activeDoc) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto py-12 px-4 select-none">
-        <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mb-4">
+        <div 
+          onClick={onTriggerUpload}
+          className="w-16 h-16 rounded-2xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 text-sky-600 dark:text-sky-400 flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform shadow-sm shadow-sky-500/10"
+        >
           <FileText className="w-8 h-8" />
         </div>
         <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
@@ -110,6 +115,13 @@ export default function MessageList({
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
           DocChat analyzes contracts, research papers, financial reports, or manuals and answers questions strictly from the document text.
         </p>
+        <button
+          onClick={onTriggerUpload}
+          className="mt-5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white font-semibold text-xs flex items-center gap-2 shadow-md shadow-sky-600/25 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+        >
+          <UploadCloud className="w-4 h-4" />
+          <span>Upload Document</span>
+        </button>
       </div>
     );
   }
