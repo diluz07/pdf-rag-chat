@@ -76,13 +76,14 @@ export default function MessageList({
           <Lock className="w-8 h-8" />
         </div>
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 text-xs font-semibold text-sky-600 dark:text-sky-400 mb-3">
-          Sign-In Mandatory
+          <Sparkles className="w-3.5 h-3.5 text-sky-500" />
+          <span>Document AI Assistant</span>
         </div>
         <h3 className="text-xl font-bold text-slate-900 dark:text-white">
           Welcome to DocChat
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed max-w-sm">
-          Please authenticate with your email to upload documents, ask grounded questions with Groq AI, and view citations.
+          Sign in with your email to upload documents, ask grounded questions with Groq AI, and view citations.
         </p>
         <button
           onClick={onOpenAuthModal}

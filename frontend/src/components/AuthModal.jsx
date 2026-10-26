@@ -112,20 +112,13 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
         {/* Modal Header */}
         <div className="text-center mb-6">
           <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-sky-500 to-cyan-500 text-white flex items-center justify-center shadow-md shadow-sky-500/20">
-            {isMandatory ? <Lock className="w-6 h-6" /> : <Mail className="w-6 h-6" />}
+            <Mail className="w-6 h-6" />
           </div>
-          {isMandatory && (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/80 border border-sky-200 dark:border-sky-800 text-[11px] font-semibold text-sky-600 dark:text-sky-400 mb-2">
-              <Lock className="w-3 h-3" /> Mandatory Sign-In
-            </div>
-          )}
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-            {isMandatory ? 'Sign in to DocChat' : 'Sign in with Email'}
+            Sign in to DocChat
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {isMandatory 
-              ? 'Email verification is required to upload PDFs and ask questions.' 
-              : 'We will send a 6-digit verification code to your email'}
+            Enter your email to receive a 6-digit verification code
           </p>
         </div>
 

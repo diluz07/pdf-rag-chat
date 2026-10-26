@@ -89,10 +89,10 @@ export default function Sidebar({
                 <Lock className="w-5 h-5" />
               </div>
               <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                Sign-In Required
+                Sign In to Upload
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                Email verification is mandatory to unlock document indexing & AI query generation.
+                Sign in with your email to upload and chat with documents.
               </p>
               <button
                 type="button"
