@@ -95,6 +95,7 @@ def send_email_otp(to_email: str, code: str) -> bool:
     if brevo_api_key:
         try:
             import urllib.request
+            import urllib.error
             import json
 
             sender_email = os.getenv("BREVO_FROM", smtp_user or "noreply@docchat.app")
@@ -111,6 +112,7 @@ def send_email_otp(to_email: str, code: str) -> bool:
                 headers={
                     "api-key": brevo_api_key,
                     "Content-Type": "application/json",
+                    "Accept": "application/json",
                 },
                 method="POST",
             )
@@ -118,6 +120,9 @@ def send_email_otp(to_email: str, code: str) -> bool:
                 if resp.status in (200, 201):
                     logger.info(f"Successfully dispatched OTP to {to_email} via Brevo HTTPS API")
                     return True
+        except urllib.error.HTTPError as he:
+            err_body = he.read().decode("utf-8", errors="ignore")
+            logger.error(f"Brevo HTTPS API HTTP {he.code} error: {err_body}")
         except Exception as e:
             logger.error(f"Brevo HTTPS API dispatch failed: {e}")
 
