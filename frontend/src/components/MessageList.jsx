@@ -5,7 +5,6 @@ import {
   ChevronUp,
   Sparkles,
   Info,
-  ArrowRight,
 } from 'lucide-react';
 
 export default function MessageList({
@@ -61,13 +60,6 @@ export default function MessageList({
     }
   };
 
-  const examplePrompts = [
-    'What was the total operating income or revenue?',
-    'Summarize the core conclusions in Section 2.',
-    'What are the primary risks or limitations outlined?',
-    'List all key dates, percentages, and metrics.',
-  ];
-
   // 1. EMPTY STATE (No PDF loaded)
   if (!activeDoc) {
     return (
@@ -81,22 +73,6 @@ export default function MessageList({
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
           DocChat analyzes contracts, research papers, financial reports, or manuals and answers questions strictly from the document text.
         </p>
-
-        {/* Greyed-out example questions from Stitch design */}
-        <div className="w-full mt-8 space-y-2 text-left opacity-70 pointer-events-none">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-2 text-center">
-            Example questions (unlocked upon upload)
-          </span>
-          {examplePrompts.map((prompt, i) => (
-            <div
-              key={i}
-              className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-custom text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between"
-            >
-              <span>"{prompt}"</span>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
-            </div>
-          ))}
-        </div>
       </div>
     );
   }
@@ -110,27 +86,6 @@ export default function MessageList({
           Document Session Started • {activeDoc.filename}
         </span>
       </div>
-
-      {/* Suggested prompts if conversation just started */}
-      {messages.length === 0 && (
-        <div className="p-4 rounded-custom bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
-          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
-            Suggested starter queries:
-          </span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {examplePrompts.map((prompt, i) => (
-              <button
-                key={i}
-                onClick={() => onSelectPrompt(prompt)}
-                className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 hover:bg-brand-50 dark:hover:bg-brand-950/40 border border-slate-200 dark:border-slate-700 text-left text-xs text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-300 transition-colors flex items-center justify-between"
-              >
-                <span className="truncate">{prompt}</span>
-                <Sparkles className="w-3 h-3 text-slate-400 ml-2 flex-shrink-0" />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Message List */}
       {messages.map((msg, index) => {
