@@ -39,7 +39,7 @@ export default function TopBar({
             )}
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-            {activeDoc ? 'Direct grounded query session' : 'Upload a PDF from the sidebar to begin'}
+            {activeDoc ? 'Active document session' : 'Upload a PDF from the sidebar to begin'}
           </p>
         </div>
       </div>

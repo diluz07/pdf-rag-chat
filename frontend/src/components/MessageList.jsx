@@ -83,7 +83,7 @@ export default function MessageList({
           Welcome to DocChat
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed max-w-sm">
-          Sign in with your email to upload documents, ask grounded questions with Groq AI, and view citations.
+          Sign in with your email to upload documents, ask questions with Groq AI, and view citations.
         </p>
         <button
           onClick={onOpenAuthModal}

@@ -65,9 +65,6 @@ export default function Sidebar({
                 v1.0
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">
-              Document-grounded Q&A
-            </p>
           </div>
         </div>
       </div>
