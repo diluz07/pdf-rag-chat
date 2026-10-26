@@ -14,7 +14,17 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState('');
   const [serverStatus, setServerStatus] = useState('checking');
-  const [isDarkMode, setIsDarkMode] = useState(true); // Default to sleek dark mode
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('documind_theme');
+      if (saved !== null) return saved === 'dark';
+      return typeof window !== 'undefined'
+        ? window.matchMedia('(prefers-color-scheme: dark)').matches
+        : true;
+    } catch {
+      return true;
+    }
+  }); // Default to user preference / dark mode
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [user, setUser] = useState(() => {
     try {
@@ -36,12 +46,18 @@ export default function App() {
     localStorage.removeItem('documind_user');
   };
 
-  // Sync dark mode class on <html>
+  // Sync dark mode class on <html> and save to localStorage
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
+      try {
+        localStorage.setItem('documind_theme', 'dark');
+      } catch {}
     } else {
       document.documentElement.classList.remove('dark');
+      try {
+        localStorage.setItem('documind_theme', 'light');
+      } catch {}
     }
   }, [isDarkMode]);
 
