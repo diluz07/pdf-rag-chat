@@ -63,27 +63,27 @@ export default function TopBar({
 
       {/* Action Controls */}
       <div className="flex items-center space-x-2">
-        {/* Clear Chat */}
-        {activeDoc && (
-          <button
-            onClick={onClearChat}
-            title="Clear conversation"
-            className="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-xl hover:bg-white/80 dark:hover:bg-white/10 backdrop-blur-xs transition-colors cursor-pointer"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-        )}
+        {/* Clear Conversation Glass Bubble */}
+        <button
+          onClick={onClearChat}
+          title="Clear conversation"
+          aria-label="Clear conversation"
+          className="h-8 px-2.5 rounded-full border border-zinc-200/70 dark:border-white/15 bg-white/70 dark:bg-white/10 hover:bg-white/90 dark:hover:bg-white/20 text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white backdrop-blur-xl transition-all flex items-center gap-1.5 font-medium cursor-pointer shadow-xs hover:scale-105 active:scale-95"
+        >
+          <RotateCcw className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+          <span className="text-[11px] hidden sm:inline">Clear</span>
+        </button>
 
-        {/* Theme Toggle (Light / Dark) */}
+        {/* Theme Toggle (Light / Dark) Glass Bubble */}
         <button
           onClick={onToggleTheme}
           aria-label="Toggle Light/Dark Theme"
-          className="p-1.5 px-2.5 rounded-2xl border border-zinc-200/70 dark:border-white/10 bg-white/70 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-white/10 backdrop-blur-md transition-colors flex items-center gap-1.5 font-medium cursor-pointer"
+          className="h-8 px-2.5 rounded-full border border-zinc-200/70 dark:border-white/15 bg-white/70 dark:bg-white/10 hover:bg-white/90 dark:hover:bg-white/20 text-zinc-700 dark:text-zinc-300 backdrop-blur-xl transition-all flex items-center gap-1.5 font-medium cursor-pointer shadow-xs hover:scale-105 active:scale-95"
         >
           {isDarkMode ? (
-            <Sun className="w-4 h-4 text-amber-400" />
+            <Sun className="w-3.5 h-3.5 text-amber-400" />
           ) : (
-            <Moon className="w-4 h-4 text-zinc-600" />
+            <Moon className="w-3.5 h-3.5 text-zinc-600" />
           )}
           <span className="text-[11px] hidden sm:inline">{isDarkMode ? 'Dark' : 'Light'}</span>
         </button>
