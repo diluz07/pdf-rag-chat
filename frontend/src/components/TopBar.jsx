@@ -24,13 +24,13 @@ export default function TopBar({
   onToggleTemporaryChat,
 }) {
   return (
-    <header className="h-14 px-4 sm:px-6 bg-white/60 dark:bg-black/30 backdrop-blur-xl border-b border-zinc-200/50 dark:border-white/10 flex items-center justify-between shrink-0 z-10 transition-colors">
+    <header className="h-14 px-4 sm:px-6 bg-transparent flex items-center justify-between shrink-0 z-10 transition-all select-none">
       <div className="flex items-center space-x-2.5 min-w-0">
         <div
-          className={`p-1.5 rounded-xl border shadow-2xs ${
+          className={`p-1.5 rounded-xl border transition-all shadow-2xs backdrop-blur-xs ${
             isTemporaryChat
               ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
-              : 'bg-white/80 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 border-zinc-200/60 dark:border-white/10'
+              : 'bg-white/60 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 border-zinc-200/40 dark:border-white/10'
           }`}
         >
           {isTemporaryChat ? (

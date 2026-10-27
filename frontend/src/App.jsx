@@ -630,7 +630,7 @@ export default function App() {
 
           {/* Temporary Chat Notice Banner */}
           {isTemporaryChat && (
-            <div className="bg-amber-50/95 dark:bg-amber-950/60 px-4 py-2 flex items-center justify-between text-xs text-amber-800 dark:text-amber-300 transition-all shadow-xs shrink-0 border-b border-amber-200/50 dark:border-amber-800/30">
+            <div className="mx-4 sm:mx-6 my-1.5 px-4 py-2 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/25 backdrop-blur-md flex items-center justify-between text-xs text-amber-800 dark:text-amber-300 transition-all shadow-xs shrink-0">
               <div className="flex items-center gap-2 min-w-0">
                 <MessageCircleDashed className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                 <span className="truncate">
