@@ -7,14 +7,56 @@ from langchain_core.documents import Document
 
 logger = logging.getLogger(__name__)
 
+# Ensure common macOS Homebrew paths are in PATH
+for p in ["/opt/homebrew/bin", "/usr/local/bin"]:
+    if p not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = f"{p}:{os.environ.get('PATH', '')}"
+
 # Check OCR availability gracefully
 OCR_AVAILABLE = False
 try:
     import pytesseract
     from pdf2image import convert_from_path
-    OCR_AVAILABLE = True
+    from PIL import Image, ImageOps
+    # Check if tesseract binary can be found
+    import shutil
+    if shutil.which("tesseract"):
+        OCR_AVAILABLE = True
+        logger.info("OCR tools detected (pytesseract & tesseract binary ready).")
+    else:
+        logger.warning("pytesseract installed but 'tesseract' binary not found in PATH.")
 except ImportError:
     logger.warning("pytesseract or pdf2image not installed. OCR fallback disabled.")
+
+
+def extract_text_from_image(image_path: str) -> str:
+    """
+    Extracts text directly from an image file (.png, .jpg, iPhone photos, etc.) using OCR.
+    """
+    if not OCR_AVAILABLE:
+        raise RuntimeError(
+            "Tesseract OCR is not installed or available. Please install tesseract to process image files."
+        )
+    try:
+        with Image.open(image_path) as raw_img:
+            # 1. Correct orientation from EXIF (essential for phone camera photos)
+            transposed = ImageOps.exif_transpose(raw_img)
+            img = transposed if transposed is not None else raw_img
+
+            # 2. Convert to standard RGB image and set format explicitly to PNG
+            # This handles MPO (iPhone camera files), RGBA, WebP, CMYK without pytesseract format errors
+            rgb_img = Image.new("RGB", img.size, (255, 255, 255))
+            if img.mode in ("RGBA", "LA") and "A" in img.getbands():
+                rgb_img.paste(img, (0, 0), img.getchannel("A"))
+            else:
+                rgb_img.paste(img.convert("RGB"), (0, 0))
+            rgb_img.format = "PNG"
+
+            text = pytesseract.image_to_string(rgb_img)
+            return text.strip()
+    except Exception as e:
+        logger.error(f"Failed to OCR image {image_path}: {e}")
+        raise RuntimeError(f"OCR processing failed on image: {e}")
 
 
 def extract_text_and_pages(pdf_path: str) -> List[Tuple[int, str]]:
@@ -43,12 +85,10 @@ def extract_text_and_pages(pdf_path: str) -> List[Tuple[int, str]]:
 
     # If any pages were deemed empty/scanned and OCR is available, run single-page OCR fallback safely
     if scanned_pages_indices and OCR_AVAILABLE:
-        # Cap OCR attempts to first 5 low-text pages to prevent timeouts on low-CPU cloud instances
-        target_indices = scanned_pages_indices[:5]
-        logger.info(f"Attempting low-memory single-page OCR on {len(target_indices)} pages...")
-        for idx in target_indices:
+        logger.info(f"Attempting OCR on {len(scanned_pages_indices)} scanned/low-text page(s)...")
+        for idx in scanned_pages_indices:
             try:
-                # Convert ONLY the single target page to prevent 512MB RAM exhaustion
+                # Convert ONLY the single target page to prevent memory exhaustion
                 images = convert_from_path(pdf_path, first_page=idx + 1, last_page=idx + 1)
                 if images:
                     ocr_text = pytesseract.image_to_string(images[0]).strip()
@@ -106,18 +146,28 @@ def chunk_document(
     return documents
 
 
-def process_pdf_file(
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"}
+
+
+def process_document_file(
     file_path: str,
     source_filename: str,
     chunk_size: int = 1000,
     chunk_overlap: int = 200,
 ) -> Tuple[List[Document], int]:
     """
-    Top-level helper to parse and chunk a PDF file.
+    Top-level helper to parse and chunk a PDF or image file.
     Returns (chunks, total_pages).
     """
-    pages_data = extract_text_and_pages(file_path)
-    total_pages = len(pages_data)
+    ext = os.path.splitext(source_filename.lower())[1]
+    if ext in IMAGE_EXTENSIONS:
+        text = extract_text_from_image(file_path)
+        pages_data = [(1, text)]
+        total_pages = 1
+    else:
+        pages_data = extract_text_and_pages(file_path)
+        total_pages = len(pages_data)
+
     chunks = chunk_document(
         pages_data=pages_data,
         source_filename=source_filename,
@@ -125,3 +175,8 @@ def process_pdf_file(
         chunk_overlap=chunk_overlap,
     )
     return chunks, total_pages
+
+
+# Backward compatibility alias
+process_pdf_file = process_document_file
+

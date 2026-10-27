@@ -95,14 +95,14 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
           onClose();
         }
       }}
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
     >
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
+      <div className="bg-white/85 dark:bg-black/60 backdrop-blur-2xl border border-zinc-200/80 dark:border-white/15 rounded-3xl max-w-sm w-full p-6 sm:p-7 shadow-2xl relative">
         {/* Close Button (Hidden if mandatory) */}
         {!isMandatory && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="absolute top-4 right-4 p-1.5 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-white/80 dark:hover:bg-white/10 transition-colors cursor-pointer"
             aria-label="Close dialog"
           >
             <X className="w-5 h-5" />
@@ -111,20 +111,22 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
 
         {/* Modal Header */}
         <div className="text-center mb-6">
-          <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-sky-500 to-cyan-500 text-white flex items-center justify-center shadow-md shadow-sky-500/20">
+          <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-white/80 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center shadow-xs border border-zinc-200/80 dark:border-white/15 backdrop-blur-xs">
             <Mail className="w-6 h-6" />
           </div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-            Sign in to DocChat
+          <h3 className="text-lg font-bold tracking-tight">
+            <span className="text-zinc-900 dark:text-white mr-1.5 font-normal">Sign in to</span>
+            <span className="font-extrabold text-zinc-950 dark:text-white">PAGE</span>
+            <span className="font-semibold text-zinc-400 dark:text-zinc-500">WISE</span>
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
             Enter your email to receive a 6-digit verification code
           </p>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-4 p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs text-red-600 dark:text-red-300 flex items-start gap-2">
+          <div className="mb-4 p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-300 flex items-start gap-2 backdrop-blur-xs">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -132,7 +134,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
 
         {/* Success Alert */}
         {successMsg && (
-          <div className="mb-4 p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-700 dark:text-emerald-300 flex items-start gap-2">
+          <div className="mb-4 p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-700 dark:text-emerald-300 flex items-start gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{successMsg}</span>
           </div>
@@ -142,18 +144,18 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
         {step === 'email' ? (
           <form onSubmit={handleSendOtp} className="space-y-3.5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Mail className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                  className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-500 transition-all"
                 />
               </div>
             </div>
@@ -161,7 +163,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
             <button
               type="submit"
               disabled={isLoading || !email.trim()}
-              className="w-full py-2.5 px-4 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 disabled:opacity-50 text-white font-medium text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm shadow-sky-600/20 cursor-pointer"
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-zinc-900 via-neutral-900 to-zinc-800 hover:from-zinc-800 hover:to-zinc-700 disabled:opacity-50 text-white font-medium text-xs rounded-2xl transition-all flex items-center justify-center gap-2 shadow-sm shadow-black/25 border border-zinc-700/60 cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -180,7 +182,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
           <form onSubmit={handleVerifyOtp} className="space-y-3.5">
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                   6-Digit Code
                 </label>
                 <button
@@ -190,14 +192,14 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
                     setError('');
                     setSuccessMsg('');
                   }}
-                  className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline"
+                  className="text-[11px] text-zinc-700 dark:text-zinc-300 font-medium hover:underline"
                 >
                   Change email
                 </button>
               </div>
 
               <div className="relative">
-                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <KeyRound className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   required
@@ -206,18 +208,18 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                   placeholder="123456"
-                  className="w-full pl-9 pr-3 py-2.5 text-center text-lg tracking-[0.3em] font-mono bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+                  className="w-full pl-10 pr-3.5 py-2.5 text-center text-lg tracking-[0.3em] font-mono bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-500 transition-all"
                 />
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 text-center">
-                Sent to <span className="font-medium text-slate-700 dark:text-slate-300">{email}</span>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1.5 text-center">
+                Sent to <span className="font-medium text-zinc-700 dark:text-zinc-300">{email}</span>
               </p>
             </div>
 
             <button
               type="submit"
               disabled={isLoading || code.length !== 6}
-              className="w-full py-2.5 px-4 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 disabled:opacity-50 text-white font-medium text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm shadow-sky-600/20 cursor-pointer"
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-zinc-900 via-neutral-900 to-zinc-800 hover:from-zinc-800 hover:to-zinc-700 disabled:opacity-50 text-white font-medium text-xs rounded-2xl transition-all flex items-center justify-center gap-2 shadow-sm shadow-black/25 border border-zinc-700/60 cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -235,7 +237,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
                 type="button"
                 disabled={countdown > 0 || isLoading}
                 onClick={handleSendOtp}
-                className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-50 transition-colors"
+                className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 disabled:opacity-50 transition-colors"
               >
                 {countdown > 0 ? `Resend code in ${countdown}s` : 'Resend verification code'}
               </button>

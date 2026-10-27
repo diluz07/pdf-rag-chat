@@ -24,6 +24,7 @@ from rag_pipeline import (
     answer_query,
     rewrite_question_with_history,
     get_llm,
+    is_conversational_or_greeting,
 )
 
 # Configure logging
@@ -121,16 +122,19 @@ def health_check():
     }
 
 
+ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"}
+
 @app.post("/upload", response_model=UploadResponse, tags=["Document Ingestion"])
 async def upload_pdf(file: UploadFile = File(...), user_email: Optional[str] = Form(None)):
     """
-    Accepts a single PDF file, extracts text page-by-page (with OCR fallback for scanned pages),
-    chunks content with page metadata, embeds into ChromaDB, and returns a doc_id.
+    Accepts a PDF or image file (PNG, JPG, etc.), extracts text (with OCR for scanned content),
+    chunks content with metadata, embeds into ChromaDB, and returns a doc_id.
     """
-    if not file.filename.lower().endswith(".pdf"):
+    file_ext = os.path.splitext(file.filename.lower())[1]
+    if file_ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid file format. Please upload a standard PDF (.pdf) file.",
+            detail=f"Invalid file format. Supported formats: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
         )
 
     # Generate unique document ID
@@ -232,6 +236,23 @@ def query_document(req: QueryRequest):
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Document session not found or expired. Please re-upload your PDF.",
             )
+
+    # 0. Conversational / Greeting Check: immediately answer without document citations
+    if is_conversational_or_greeting(req.question):
+        result = answer_query(
+            question=req.question,
+            chunks_with_scores=[],
+            history=req.history,
+            similarity_threshold=req.similarity_threshold or 0.35,
+        )
+        return QueryResponse(
+            answer=result["answer"],
+            sources=[],
+            grounded=False,
+            provider=result.get("provider", "groq"),
+            gated=False,
+            doc_id=req.doc_id,
+        )
 
     # 1. Question rewriting with history
     llm, _ = get_llm()

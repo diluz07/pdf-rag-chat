@@ -7,37 +7,28 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
 logger = logging.getLogger(__name__)
 
-NOT_FOUND_MESSAGE = "I couldn't find that in the uploaded document."
+NOT_FOUND_MESSAGE = "I took a look through the document, but I couldn't find any mention of that. If you'd like to ask about other topics covered in the file, feel free to ask!"
 DEFAULT_SIMILARITY_THRESHOLD = 0.35
 
-SYSTEM_GROUNDING_PROMPT = """You are an articulate, highly knowledgeable document Q&A assistant.
-Your goal is to provide rich, comprehensive, and thoroughly explanatory answers to user questions using EXCLUSIVELY the provided Document Context chunks below.
+SYSTEM_GROUNDING_PROMPT = """You are a helpful, knowledgeable reading companion discussing an uploaded document.
+Your goal is to answer the user's questions clearly, naturally, and accurately based SOLELY on the provided Document Context.
 
-CORE PRINCIPLES:
-1. Comprehensive & Complete Coverage:
-   - Thoroughly cover everything the document says regarding the user's question. Include all relevant details, components, figures, conditions, background, and related facts found in the context.
-   - Do not give truncated or superficial one-sentence summaries when richer details and context are available in the text.
+CORE PRINCIPLES (HUMAN & NATURAL VOICE):
+1. Talk Like a Real Person, Not an AI:
+   - Speak in a natural, warm, and conversational tone, like a smart colleague talking through notes.
+   - Strictly avoid AI clichés, corporate buzzwords, and promotional fluff: NEVER use words like "delve", "tapestry", "landscape", "testament", "pivotal", "foster", "leverage", "moreover", "furthermore", "in conclusion", or "it is important to note".
+   - Skip robotic AI openings (e.g., do NOT start with "Based on the provided document...", "According to the context...", or "Certainly!"). Jump right into the explanation.
+   - Let formatting feel natural: write in clean, readable paragraphs. Don't over-bold every keyword, and only use bullet points when genuinely breaking down distinct items or steps.
 
-2. Structured, Clean Formatting:
-   - Structure your answer cleanly using standard Markdown:
-     * Use bold text (**important term**) to emphasize key concepts, terminology, and definitions.
-     * Use bulleted lists (- Item) or numbered steps with clean line breaks for distinct items, components, or steps.
-     * Use concise subheadings (### Section) for multi-part or detailed answers.
-     * Maintain clear paragraph breaks for readability.
+2. Faithful Grounding & Natural Citations:
+   - Every fact must come directly from the Document Context. Never hallucinate, extrapolate, or introduce outside world knowledge.
+   - Include the page citation naturally near the fact (e.g. "[Page 2]" or "[p. 4]").
 
-3. Humanized & Natural Voice (NO Verbatim Copy-Pasting):
-   - Explain and synthesize the concepts in your own fluent, natural, engaging human voice.
-   - Do NOT simply copy-paste raw sentences or robotic excerpts from the PDF. Rephrase, clarify, and articulate the concepts smoothly as a human domain expert would when explaining to a colleague.
-   - Avoid robotic AI preambles (e.g., do NOT start with "Based on the provided context...", "According to the document...", or "The text indicates..."). Dive straight into the explanation.
+3. When the Document Doesn't Have the Answer:
+   - If the document context does NOT contain information to answer the question, you MUST start your response with the exact tag: [NOT_FOUND]
+   - After the tag, explain politely and naturally in a human way why the topic is not covered in the document (for example: "[NOT_FOUND] I took a look through the material you shared, and it doesn't talk about that at all. If you have any other questions about the content that's in the document, just let me know!").
+   - In this case, DO NOT cite any page numbers or include any citations. Do NOT give cold, repetitive canned sentences."""
 
-4. Strict Document Grounding & Citations:
-   - Every claim must remain 100% faithful to the facts stated in the Document Context. Never extrapolate, hallucinate, or bring in outside world knowledge.
-   - Clearly cite the specific page number(s) where each fact originates using [Page X] format naturally within or at the end of key points.
-
-5. Missing Information:
-   - If the Document Context does not contain sufficient information to answer the question, respond with EXACTLY:
-   "{not_found_message}"
-   Do not apologize, speculate, or suggest external possibilities."""
 
 
 # Multi-model Groq pool for automatic failover when rate limits are reached
@@ -189,6 +180,137 @@ def format_context_chunks(chunks_with_scores: List[Tuple[Document, float]]) -> s
     return "\n\n".join(formatted_sections)
 
 
+def get_humanized_not_found(question: str) -> str:
+    cleaned = question.strip().rstrip("?").strip()
+    if cleaned:
+        return (
+            f"I looked through the document, but I couldn't find any mention of \"{cleaned}\". "
+            f"If there's another topic or section in the file you'd like to explore, feel free to ask!"
+        )
+    return (
+        "I looked through the document, but I couldn't find any information on that. "
+        "Feel free to ask about any other sections or topics covered in the file!"
+    )
+
+
+def check_is_not_found(text: str) -> bool:
+    # Normalize unicode apostrophes (e.g. doesn’t -> doesn't) and curly quotes
+    normalized = (
+        text.replace("’", "'")
+        .replace("‘", "'")
+        .replace("“", '"')
+        .replace("”", '"')
+        .lower()
+    )
+    indicators = [
+        "not found",
+        "couldn't find",
+        "could not find",
+        "doesn't talk",
+        "does not talk",
+        "not talk about",
+        "talk about",
+        "doesn't mention",
+        "does not mention",
+        "not mentioned",
+        "doesn't contain",
+        "does not contain",
+        "not contained",
+        "doesn't cover",
+        "does not cover",
+        "not covered",
+        "doesn't discuss",
+        "does not discuss",
+        "not discussed",
+        "doesn't include",
+        "does not include",
+        "not included",
+        "doesn't speak",
+        "does not speak",
+        "doesn't say",
+        "does not say",
+        "doesn't address",
+        "does not address",
+        "not addressed",
+        "doesn't touch",
+        "does not touch",
+        "no mention of",
+        "no discussion of",
+        "no definition",
+        "no information about",
+        "no information on",
+        "not in the document",
+        "not in the uploaded",
+        "not in the text",
+        "not in the material",
+        "unable to find",
+        "was not able to find",
+        "not provide information",
+        "doesn't provide",
+        "does not provide",
+    ]
+    return any(ind in normalized for ind in indicators)
+
+
+def is_conversational_or_greeting(text: str) -> bool:
+    """
+    Detects if the user input is a greeting, pleasantry, or small talk
+    (e.g., 'hi', 'hello', 'hey', 'good morning', 'how are you', 'thank you', 'bye')
+    so that we do NOT attach document citations or treat it as a grounded document question.
+    """
+    if not text:
+        return False
+
+    cleaned = re.sub(r"[^\w\s]", " ", text.strip().lower())
+    words = cleaned.split()
+    if not words:
+        return False
+
+    joined = " ".join(words)
+
+    # 1. Exact greetings and pleasantries
+    exact_matches = {
+        "hi", "hello", "hey", "heya", "howdy", "hola", "yo", "sup",
+        "greetings", "good morning", "good afternoon", "good evening",
+        "good day", "morning", "afternoon", "evening",
+        "how are you", "how are you doing", "how r u", "how is it going",
+        "who are you", "what are you", "what can you do", "what do you do",
+        "help", "help me", "can you help",
+        "thank you", "thanks", "thx", "thank you so much", "thanks a lot",
+        "bye", "goodbye", "see you", "see ya", "good night",
+        "ok", "okay", "cool", "great", "awesome", "nice", "got it", "understood",
+    }
+    if joined in exact_matches:
+        return True
+
+    # 2. Short greetings (<= 3 words, starting with a common greeting like "hi there", "hello bot")
+    if len(words) <= 3 and words[0] in {"hi", "hello", "hey", "heya", "howdy", "hola"}:
+        return True
+
+    # 3. Meta inquiries on how to talk to or use the assistant
+    meta_inquiries = [
+        "how to talk to you", "how do i talk to you", "how can i talk to you",
+        "how to talk with you", "how do i talk with you", "how to talk to u",
+        "how do i talk to u", "how can i talk to u", "how to talk",
+        "how to chat with you", "how do i chat with you", "how to chat",
+        "how to use you", "how do i use you", "how can i use you",
+        "how to use this", "how do i use this", "how can i use this",
+        "how does this work", "how do you work", "how does it work",
+        "what can you do", "what do you do", "what can i ask you",
+        "what can i ask", "what should i ask you", "what should i ask",
+        "how do i ask", "how to ask", "how to ask questions",
+        "how do i ask questions", "how can i ask questions",
+        "who are you", "what are you", "tell me about yourself",
+        "what is your purpose", "how to use pagewise", "how do i use pagewise",
+        "how does pagewise work", "help me get started", "getting started",
+        "how to communicate", "how to communicate with you",
+    ]
+    if any(q in joined for q in meta_inquiries):
+        return True
+
+    return False
+
+
 def answer_query(
     question: str,
     chunks_with_scores: List[Tuple[Document, float]],
@@ -200,14 +322,63 @@ def answer_query(
     1. Similarity threshold gatekeeper
     2. Multi-model Groq cascade with automatic rate limit failover
     3. OpenRouter multi-model fallback
-    4. Strict grounding prompt enforcement and source citations
+    4. Humanized tone and natural grounding
     """
     history = history or []
+
+    # 0. Conversational / Greeting / Meta-Inquiry Check: respond warmly without document citations
+    if is_conversational_or_greeting(question):
+        logger.info(f"Detected conversational/greeting/meta query: '{question}'. Responding without citations.")
+
+        is_how_to_use = any(k in question.lower() for k in [
+            "how to talk", "how do i talk", "how can i talk", "how to chat",
+            "how to use", "how do i use", "how does this work", "how do you work",
+            "what can you do", "what can i ask", "what should i ask", "how to ask",
+            "who are you", "what are you", "instructions", "getting started", "how to communicate",
+        ])
+
+        if is_how_to_use:
+            prompt_content = (
+                f"The user asked: '{question}'. "
+                "You are the PageWise AI document reading companion. "
+                "Explain warmly, clearly, and concisely in 2 friendly sentences how they can talk to you and use PageWise: "
+                "they can simply type any question in plain English to summarize sections, extract key facts or numbers, "
+                "clarify terms, or find specific details, and you will retrieve the answers with exact page citations from their document. "
+                "Do NOT include any [Page X] citations or brackets."
+            )
+        else:
+            prompt_content = (
+                f"The user said: '{question}'. "
+                "You are the PageWise AI document assistant. Respond warmly, politely, and briefly in 1-2 friendly sentences, "
+                "welcoming them and letting them know you are ready to answer any questions about their uploaded document. "
+                "Do NOT include any page numbers, citations, or brackets."
+            )
+
+        generated_text, used_provider = invoke_llm_cascade([
+            SystemMessage(content="You are the friendly, helpful PageWise document assistant. Speak naturally like a real person, not an AI."),
+            HumanMessage(content=prompt_content),
+        ])
+        if not generated_text:
+            if is_how_to_use:
+                generated_text = (
+                    "You can talk to me just like a colleague! Ask me any questions in plain English—like summarizing sections, "
+                    "extracting key figures, or clarifying concepts—and I'll find the exact answers directly from your document with page citations."
+                )
+            else:
+                generated_text = "Hello! I'm your PageWise document assistant. Ask me anything about your uploaded document, and I'll find the answers for you!"
+
+        return {
+            "answer": clean_llm_response(generated_text),
+            "sources": [],
+            "grounded": False,
+            "provider": used_provider,
+            "gated": False,
+        }
 
     # 1. Edge Case: No chunks retrieved
     if not chunks_with_scores:
         return {
-            "answer": NOT_FOUND_MESSAGE,
+            "answer": get_humanized_not_found(question),
             "sources": [],
             "grounded": False,
             "provider": "none",
@@ -221,7 +392,7 @@ def answer_query(
     if best_score < similarity_threshold:
         logger.info(f"Query rejected by similarity gate ({best_score:.4f} < {similarity_threshold})")
         return {
-            "answer": NOT_FOUND_MESSAGE,
+            "answer": get_humanized_not_found(question),
             "sources": [],
             "grounded": False,
             "provider": "gatekeeper",
@@ -239,7 +410,7 @@ def answer_query(
     ]
 
     context_str = format_context_chunks(chunks_with_scores)
-    formatted_system = SYSTEM_GROUNDING_PROMPT.format(not_found_message=NOT_FOUND_MESSAGE)
+    formatted_system = SYSTEM_GROUNDING_PROMPT
 
     user_prompt = f"""Document Context:
 {context_str}
@@ -247,10 +418,10 @@ def answer_query(
 User Question: {question}
 
 Instructions for your response:
-1. Deliver a comprehensive, well-rounded explanation that captures all relevant facts, details, numbers, and nuances from the context.
-2. Explain everything in your own natural, humanized words rather than copying sentences verbatim from the PDF.
-3. Integrate [Page X] citations naturally where facts are mentioned.
-4. If the document truly does not contain information to answer the question, reply with '{NOT_FOUND_MESSAGE}'."""
+1. Explain the answer clearly and conversationally in your own natural words using the context above.
+2. Avoid AI clichés (no 'delve', 'testament', 'tapestry', 'furthermore'). Speak like a smart colleague.
+3. If the answer is found in the document, integrate [Page X] citations naturally where facts are mentioned.
+4. If the context does NOT contain the answer, you MUST begin your response with '[NOT_FOUND]' on the first line, then tell the user in a natural, polite human way that the document does not cover this topic. DO NOT include any page numbers or [Page X] citations."""
 
     # 3. Generate answer via Groq multi-model cascade -> OpenRouter fallback
     generated_text, used_provider = invoke_llm_cascade([
@@ -274,14 +445,29 @@ Instructions for your response:
     # 5. Clean and format answer
     clean_ans = clean_llm_response(generated_text)
     is_not_found = (
-        clean_ans.lower() == NOT_FOUND_MESSAGE.lower()
-        or NOT_FOUND_MESSAGE.lower() in clean_ans.lower()
+        "[not_found]" in clean_ans.lower()
+        or check_is_not_found(clean_ans)
     )
 
+    if is_not_found:
+        # Strip [NOT_FOUND] tag
+        clean_ans = re.sub(r'\[NOT_FOUND\]', '', clean_ans, flags=re.IGNORECASE).strip()
+        # Strip any accidental page references if the answer was not in the document
+        clean_ans = re.sub(r'\[(?:Page|p\.?)\s*\d+\]', '', clean_ans, flags=re.IGNORECASE)
+        clean_ans = re.sub(r'\((?:Page|p\.?)\s*\d+\)', '', clean_ans, flags=re.IGNORECASE)
+        clean_ans = re.sub(r'\s{2,}', ' ', clean_ans).strip()
+        return {
+            "answer": clean_ans,
+            "sources": [],
+            "grounded": False,
+            "provider": used_provider,
+            "gated": False,
+        }
+
     return {
-        "answer": NOT_FOUND_MESSAGE if is_not_found else clean_ans,
-        "sources": [] if is_not_found else sources_data,
-        "grounded": not is_not_found,
+        "answer": clean_ans,
+        "sources": sources_data,
+        "grounded": True,
         "provider": used_provider,
         "gated": False,
     }

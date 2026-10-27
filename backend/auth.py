@@ -32,7 +32,7 @@ def send_email_otp(to_email: str, code: str) -> bool:
     3. Falls back to standard SMTP (Port 587/465, works locally).
     4. Always logs prominently to stdout/Render logs so you can copy the code immediately.
     """
-    from_name = os.getenv("SMTP_FROM_NAME", "DocChat").strip()
+    from_name = os.getenv("SMTP_FROM_NAME", "PageWise").strip()
     resend_api_key = os.getenv("RESEND_API_KEY", "").strip()
     brevo_api_key = os.getenv("BREVO_API_KEY", "").strip()
     smtp_host = os.getenv("SMTP_HOST", "").strip()
@@ -42,14 +42,14 @@ def send_email_otp(to_email: str, code: str) -> bool:
 
     # Always log code prominently to console and server logs
     print("\n" + "=" * 55)
-    print(f"📧 [DOCCHAT VERIFICATION CODE] {to_email} -> {code}")
+    print(f"📧 [PAGEWISE VERIFICATION CODE] {to_email} -> {code}")
     print("=" * 55 + "\n", flush=True)
 
-    text_body = f"Your DocChat verification code is: {code}\nThis code will expire in 10 minutes."
+    text_body = f"Your Pagewise verification code is: {code}\nThis code will expire in 10 minutes."
     html_body = f"""
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
         <div style="text-align: center; margin-bottom: 20px;">
-            <h2 style="color: #0284c7; margin: 0 0 6px 0; font-size: 22px;">DocChat Verification</h2>
+            <h2 style="color: #18181b; margin: 0 0 6px 0; font-size: 22px;">Pagewise Verification</h2>
             <p style="color: #64748b; font-size: 14px; margin: 0;">Sign in to your document workspace</p>
         </div>
         <p style="color: #334155; font-size: 14px; line-height: 1.5;">Here is your 6-digit verification code:</p>
@@ -70,7 +70,7 @@ def send_email_otp(to_email: str, code: str) -> bool:
             payload = {
                 "from": f"{from_name} <{sender_email}>",
                 "to": [to_email],
-                "subject": f"{code} is your DocChat verification code",
+                "subject": f"{code} is your Pagewise verification code",
                 "text": text_body,
                 "html": html_body,
             }
@@ -80,7 +80,7 @@ def send_email_otp(to_email: str, code: str) -> bool:
                 headers={
                     "Authorization": f"Bearer {resend_api_key}",
                     "Content-Type": "application/json",
-                    "User-Agent": "DocChat/1.0",
+                    "User-Agent": "Pagewise/1.0",
                 },
                 method="POST",
             )
@@ -98,11 +98,11 @@ def send_email_otp(to_email: str, code: str) -> bool:
             import urllib.error
             import json
 
-            sender_email = os.getenv("BREVO_FROM", smtp_user or "noreply@docchat.app")
+            sender_email = os.getenv("BREVO_FROM", smtp_user or "noreply@pagewise.app")
             payload = {
                 "sender": {"name": from_name, "email": sender_email},
                 "to": [{"email": to_email}],
-                "subject": f"{code} is your DocChat verification code",
+                "subject": f"{code} is your Pagewise verification code",
                 "textContent": text_body,
                 "htmlContent": html_body,
             }
@@ -130,7 +130,7 @@ def send_email_otp(to_email: str, code: str) -> bool:
     if smtp_host and smtp_user and smtp_password:
         try:
             msg = MIMEMultipart("alternative")
-            msg["Subject"] = f"{code} is your DocChat verification code"
+            msg["Subject"] = f"{code} is your Pagewise verification code"
             msg["From"] = f"{from_name} <{smtp_user}>"
             msg["To"] = to_email
             msg.attach(MIMEText(text_body, "plain"))
