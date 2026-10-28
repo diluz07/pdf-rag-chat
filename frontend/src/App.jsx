@@ -497,37 +497,54 @@ export default function App() {
       formData.append('user_email', currentUser.email);
     }
 
-    try {
-      setUploadProgressText('Extracting vectors & indexing...');
-      const response = await fetch(`${BACKEND_URL}/upload`, {
-        method: 'POST',
-        body: formData,
-      });
+    const attemptUpload = async (retryCount = 0) => {
+      try {
+        setUploadProgressText(
+          retryCount > 0
+            ? 'Server connected! Uploading document...'
+            : 'Extracting vectors & indexing...'
+        );
+        const response = await fetch(`${BACKEND_URL}/upload`, {
+          method: 'POST',
+          body: formData,
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Upload failed');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || 'Upload failed');
+        }
+
+        const data = await response.json();
+        setActiveDoc(data);
+        setMessages([]);
+        setIsMobileSidebarOpen(false);
+      } catch (err) {
+        const isNetworkError =
+          err.message.includes('Load failed') ||
+          err.message.includes('Failed to fetch') ||
+          err.message.includes('NetworkError');
+
+        if (isNetworkError && retryCount < 1) {
+          setUploadProgressText('Server waking up... retrying automatically...');
+          await new Promise((r) => setTimeout(r, 2000));
+          return await attemptUpload(retryCount + 1);
+        }
+
+        showAlert({
+          title: isNetworkError ? 'Server Waking Up' : 'Upload Error',
+          message: isNetworkError
+            ? 'The cloud server was waking up from idle mode. It is connected now—please tap Upload once more!'
+            : `Upload error: ${err.message}`,
+          type: isNetworkError ? 'warning' : 'danger',
+        });
+      } finally {
+        if (retryCount === 0) {
+          setIsUploading(false);
+        }
       }
+    };
 
-      const data = await response.json();
-      setActiveDoc(data);
-      setMessages([]);
-      setIsMobileSidebarOpen(false);
-    } catch (err) {
-      const isNetworkError =
-        err.message.includes('Load failed') ||
-        err.message.includes('Failed to fetch') ||
-        err.message.includes('NetworkError');
-      showAlert({
-        title: isNetworkError ? 'Server Waking Up' : 'Upload Error',
-        message: isNetworkError
-          ? 'The cloud server was waking up from idle mode. It is connected now—please tap Upload once more!'
-          : `Upload error: ${err.message}`,
-        type: isNetworkError ? 'warning' : 'danger',
-      });
-    } finally {
-      setIsUploading(false);
-    }
+    await attemptUpload(0);
   };
 
   const handleRemoveDoc = () => {
