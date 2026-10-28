@@ -322,8 +322,32 @@ from auth import (
     generate_otp,
     send_email_otp,
     verify_google_credential,
+    register_user,
+    authenticate_user_password,
+    reset_user_password,
     OTP_EXPIRY_SECONDS,
 )
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    code: str
+    new_password: str
 
 
 class SendOtpRequest(BaseModel):
@@ -337,6 +361,92 @@ class VerifyOtpRequest(BaseModel):
 
 class GoogleAuthRequest(BaseModel):
     credential: str
+
+
+@app.post("/auth/register", tags=["Authentication"])
+def register_account(req: RegisterRequest):
+    """Registers a new user account with email and password."""
+    success, message, profile = register_user(req.email, req.password, req.name)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
+    return {"success": True, "user": profile, "message": message}
+
+
+@app.post("/auth/login", tags=["Authentication"])
+def login_with_password(req: LoginRequest):
+    """Authenticates a user using email and password."""
+    success, message, profile = authenticate_user_password(req.email, req.password)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=message)
+    return {"success": True, "user": profile, "message": message}
+
+
+@app.post("/auth/forgot-password", tags=["Authentication"])
+def request_password_reset_code(req: ForgotPasswordRequest):
+    """Generates and dispatches a 6-digit password reset OTP to user's email."""
+    email = req.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide a valid email.")
+
+    code = generate_otp()
+    otp_store[email] = {
+        "code": code,
+        "expires_at": time.time() + OTP_EXPIRY_SECONDS,
+        "attempts": 0,
+        "purpose": "reset",
+    }
+    send_email_otp(email, code)
+    return {
+        "success": True,
+        "email": email,
+        "message": f"Password reset verification code sent to {email}.",
+    }
+
+
+@app.post("/auth/reset-password", tags=["Authentication"])
+def reset_password(req: ResetPasswordRequest):
+    """Verifies the reset OTP and sets a new password for the account."""
+    email = req.email.strip().lower()
+    code = req.code.strip()
+
+    entry = otp_store.get(email)
+    if not entry or entry.get("purpose") != "reset":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No password reset request found for this email, or code has expired.",
+        )
+
+    if time.time() > entry["expires_at"]:
+        del otp_store[email]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reset verification code has expired. Please request a new one.",
+        )
+
+    if entry["attempts"] >= 5:
+        del otp_store[email]
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many invalid attempts. Please request a fresh reset code.",
+        )
+
+    if entry["code"] != code:
+        entry["attempts"] += 1
+        remaining = 5 - entry["attempts"]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Incorrect verification code. {remaining} attempt(s) remaining.",
+        )
+
+    # Valid! Clean up used OTP
+    del otp_store[email]
+
+    # Reset password
+    success, message = reset_user_password(email, req.new_password)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
+
+    return {"success": True, "message": message}
 
 
 @app.post("/auth/send-otp", tags=["Authentication"])

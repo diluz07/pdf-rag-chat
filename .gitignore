@@ -17,3 +17,7 @@ dist/
 
 # Catalyst
 .catalystrc
+
+# User Database
+users_db.json
+backend/users_db.json

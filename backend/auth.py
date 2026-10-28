@@ -3,13 +3,20 @@ import time
 import random
 import smtplib
 import logging
+import hashlib
+import hmac
+import secrets
+import json
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# In-memory OTP storage: { email: { "code": str, "expires_at": float, "attempts": int } }
+# Persistent file path for user database
+USERS_DB_FILE = os.path.join(os.path.dirname(__file__), "users_db.json")
+
+# In-memory OTP storage: { email: { "code": str, "expires_at": float, "attempts": int, "purpose": "login"|"reset" } }
 otp_store: Dict[str, Dict[str, Any]] = {}
 
 # In-memory user store: { email: { "email": str, "name": str, "picture": str, "sub": str, "created_at": float } }
@@ -17,6 +24,144 @@ user_store: Dict[str, Dict[str, Any]] = {}
 
 OTP_EXPIRY_SECONDS = 600  # 10 minutes
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+
+
+def load_users_db() -> Dict[str, Dict[str, Any]]:
+    """Loads registered users from JSON disk storage."""
+    if os.path.exists(USERS_DB_FILE):
+        try:
+            with open(USERS_DB_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Error reading users_db.json: {e}")
+            return {}
+    return {}
+
+
+def save_users_db(users: Dict[str, Dict[str, Any]]) -> None:
+    """Safely saves registered users to JSON disk storage."""
+    try:
+        with open(USERS_DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(users, f, indent=2)
+    except Exception as e:
+        logger.error(f"Error saving users_db.json: {e}")
+
+
+def hash_password(password: str) -> Tuple[str, str]:
+    """Generates a random salt and securely hashes password via PBKDF2-HMAC-SHA256 (100,000 iterations)."""
+    salt = secrets.token_bytes(16)
+    pwd_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000)
+    return salt.hex(), pwd_hash.hex()
+
+
+def verify_password(password: str, salt_hex: str, hash_hex: str) -> bool:
+    """Verifies a plaintext password against stored salt and hash in constant time."""
+    try:
+        salt = bytes.fromhex(salt_hex)
+        computed_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000)
+        return hmac.compare_digest(computed_hash.hex(), hash_hex)
+    except Exception as e:
+        logger.error(f"Password verification error: {e}")
+        return False
+
+
+def register_user(email: str, password: str, name: Optional[str] = None) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """Registers a new user with a hashed password."""
+    clean_email = email.strip().lower()
+    if not clean_email or "@" not in clean_email:
+        return False, "Invalid email address.", None
+    if len(password) < 6:
+        return False, "Password must be at least 6 characters long.", None
+
+    users = load_users_db()
+    if clean_email in users:
+        return False, "An account with this email already exists. Please sign in.", None
+
+    salt_hex, hash_hex = hash_password(password)
+    user_name = name.strip() if name and name.strip() else clean_email.split("@")[0].capitalize()
+    
+    user_record = {
+        "email": clean_email,
+        "name": user_name,
+        "salt": salt_hex,
+        "hash": hash_hex,
+        "auth_provider": "password",
+        "created_at": time.time(),
+        "updated_at": time.time(),
+    }
+    users[clean_email] = user_record
+    save_users_db(users)
+
+    safe_profile = {
+        "sub": f"email_{clean_email}",
+        "email": clean_email,
+        "name": user_name,
+        "picture": "",
+        "auth_provider": "password",
+        "created_at": user_record["created_at"],
+    }
+    user_store[clean_email] = safe_profile
+    return True, "Account created successfully.", safe_profile
+
+
+def authenticate_user_password(email: str, password: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """Authenticates user with email and password."""
+    clean_email = email.strip().lower()
+    users = load_users_db()
+    user_record = users.get(clean_email)
+    if not user_record:
+        return False, "No account found with this email. Please create an account.", None
+
+    salt_hex = user_record.get("salt")
+    hash_hex = user_record.get("hash")
+    if not salt_hex or not hash_hex:
+        return False, "This account was created with a different sign-in method. Please use OTP or Google.", None
+
+    if not verify_password(password, salt_hex, hash_hex):
+        return False, "Incorrect password. Please try again or reset your password.", None
+
+    safe_profile = {
+        "sub": f"email_{clean_email}",
+        "email": clean_email,
+        "name": user_record.get("name", clean_email.split("@")[0].capitalize()),
+        "picture": user_record.get("picture", ""),
+        "auth_provider": "password",
+        "created_at": user_record.get("created_at", time.time()),
+    }
+    user_store[clean_email] = safe_profile
+    return True, "Signed in successfully.", safe_profile
+
+
+def reset_user_password(email: str, new_password: str) -> Tuple[bool, str]:
+    """Updates user password after verification."""
+    clean_email = email.strip().lower()
+    if len(new_password) < 6:
+        return False, "New password must be at least 6 characters long."
+
+    users = load_users_db()
+    user_record = users.get(clean_email)
+    if not user_record:
+        # Create an account record if user existed only via OTP
+        salt_hex, hash_hex = hash_password(new_password)
+        users[clean_email] = {
+            "email": clean_email,
+            "name": clean_email.split("@")[0].capitalize(),
+            "salt": salt_hex,
+            "hash": hash_hex,
+            "auth_provider": "password",
+            "created_at": time.time(),
+            "updated_at": time.time(),
+        }
+        save_users_db(users)
+        return True, "Password set successfully."
+
+    salt_hex, hash_hex = hash_password(new_password)
+    user_record["salt"] = salt_hex
+    user_record["hash"] = hash_hex
+    user_record["updated_at"] = time.time()
+    users[clean_email] = user_record
+    save_users_db(users)
+    return True, "Password has been successfully reset."
 
 
 def generate_otp() -> str:
