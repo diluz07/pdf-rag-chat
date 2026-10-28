@@ -48,8 +48,17 @@ app.add_middleware(
 )
 
 # Directories
-TEMP_DIR = os.path.join(os.path.dirname(__file__), "temp_uploads")
-os.makedirs(TEMP_DIR, exist_ok=True)
+def get_safe_temp_dir() -> str:
+    primary = os.path.join(os.path.dirname(__file__), "temp_uploads")
+    try:
+        os.makedirs(primary, exist_ok=True)
+        return primary
+    except (PermissionError, OSError):
+        fallback = os.path.join("/tmp", "pagewise_temp_uploads")
+        os.makedirs(fallback, exist_ok=True)
+        return fallback
+
+TEMP_DIR = get_safe_temp_dir()
 
 # In-memory document registry: { doc_id: { "filename": ..., "uploaded_at": ..., "chunks_count": ..., "total_pages": ... } }
 document_registry: Dict[str, Dict[str, Any]] = {}
@@ -97,17 +106,32 @@ class UploadResponse(BaseModel):
     message: str
 
 
-# Endpoints
-@app.on_event("startup")
-async def startup_warmup():
-    """Pre-warm embedding model in RAM on boot so uploads don't freeze or timeout."""
+async def _background_warmup():
     try:
-        logger.info("Pre-warming FastEmbed model in RAM...")
+        logger.info("Pre-warming FastEmbed model in RAM in background...")
         from retriever import get_embeddings
         await asyncio.to_thread(get_embeddings)
         logger.info("FastEmbed model ready in RAM.")
     except Exception as e:
-        logger.warning(f"FastEmbed model pre-warm non-fatal notice: {e}")
+        logger.warning(f"FastEmbed model pre-warm notice: {e}")
+
+
+@app.on_event("startup")
+async def startup_warmup():
+    """Instantly bind port to pass Cloud health check, then warm up models in background."""
+    asyncio.create_task(_background_warmup())
+
+
+@app.get("/", tags=["System"])
+def root():
+    """Root service information and documentation link."""
+    return {
+        "name": "PageWise RAG API",
+        "status": "online",
+        "version": "1.0.0",
+        "docs_url": "/docs",
+        "health_url": "/health",
+    }
 
 
 @app.get("/health", tags=["System"])
@@ -184,6 +208,7 @@ async def upload_pdf(file: UploadFile = File(...), user_email: Optional[str] = F
             "uploaded_at": time.time(),
             "total_pages": total_pages,
             "chunks_count": chunks_count,
+            "user_email": user_email.strip().lower() if user_email else None,
         }
 
         return UploadResponse(
@@ -313,6 +338,18 @@ def remove_document(doc_id: str):
     if doc_id in document_registry:
         del document_registry[doc_id]
     return {"doc_id": doc_id, "deleted": deleted}
+
+
+@app.get("/user/documents", tags=["Document Ingestion"])
+def get_user_documents(email: str):
+    """Returns all documents indexed by a specific user email."""
+    clean_email = email.strip().lower()
+    user_docs = [
+        {"doc_id": doc_id, **info}
+        for doc_id, info in document_registry.items()
+        if info.get("user_email") == clean_email
+    ]
+    return {"documents": user_docs}
 
 
 # ──────────────────────── Authentication Endpoints ────────────────────────
@@ -556,4 +593,5 @@ def authenticate_google(req: GoogleAuthRequest):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("X_ZOHO_CATALYST_LISTEN_PORT") or os.getenv("PORT") or "8000")
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    print(f"🚀 Starting PageWise API on 0.0.0.0:{port}...", flush=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info")

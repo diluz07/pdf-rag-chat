@@ -7,13 +7,24 @@ from langchain_core.documents import Document
 
 logger = logging.getLogger(__name__)
 
-# Base persistence directories
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CHROMA_DIR = os.path.join(BASE_DIR, "chroma_db")
-FASTEMBED_CACHE_DIR = os.path.join(BASE_DIR, "fastembed_cache")
+def get_writable_dir(subfolder: str) -> str:
+    """Returns directory path, falling back to /tmp if app folder is read-only in secure containers."""
+    base = os.path.dirname(os.path.abspath(__file__))
+    primary = os.path.join(base, subfolder)
+    try:
+        os.makedirs(primary, exist_ok=True)
+        test_file = os.path.join(primary, ".write_test")
+        with open(test_file, "w") as f:
+            f.write("1")
+        os.remove(test_file)
+        return primary
+    except (PermissionError, OSError):
+        fallback = os.path.join("/tmp", "pagewise", subfolder)
+        os.makedirs(fallback, exist_ok=True)
+        return fallback
 
-os.makedirs(CHROMA_DIR, exist_ok=True)
-os.makedirs(FASTEMBED_CACHE_DIR, exist_ok=True)
+CHROMA_DIR = get_writable_dir("chroma_db")
+FASTEMBED_CACHE_DIR = get_writable_dir("fastembed_cache")
 
 # Singleton embeddings instance
 _embeddings_instance = None

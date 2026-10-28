@@ -19,43 +19,89 @@ const createNewChat = ({ isTemporary = false, title = 'New Chat' } = {}) => ({
   updatedAt: Date.now(),
 });
 
-export default function App() {
-  const [chats, setChats] = useState(() => {
-    try {
-      const saved = localStorage.getItem('docchat_all_chats');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-      // Migrate from single chat if present
-      const savedDoc = localStorage.getItem('docchat_active_doc');
-      const savedMsgs = localStorage.getItem('docchat_messages');
-      if (savedDoc || savedMsgs) {
-        const parsedDoc = savedDoc ? JSON.parse(savedDoc) : null;
-        const parsedMsgs = savedMsgs ? JSON.parse(savedMsgs) : [];
-        return [
-          {
-            id: 'chat_' + Date.now(),
-            title: parsedDoc ? parsedDoc.filename : 'New Chat',
-            activeDoc: parsedDoc,
-            messages: parsedMsgs,
-            isTemporary: false,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          },
-        ];
-      }
-    } catch {}
-    return [createNewChat()];
-  });
+// Storage Key Helpers for Strict Per-User Chat Isolation
+const getChatsStorageKey = (u) => {
+  if (u && u.email) {
+    return `pagewise_chats_${encodeURIComponent(u.email.toLowerCase().trim())}`;
+  }
+  return 'pagewise_chats_guest';
+};
 
-  const [activeChatId, setActiveChatId] = useState(() => {
+const getActiveChatStorageKey = (u) => {
+  if (u && u.email) {
+    return `pagewise_active_id_${encodeURIComponent(u.email.toLowerCase().trim())}`;
+  }
+  return 'pagewise_active_id_guest';
+};
+
+const loadUserChatsFromStorage = (targetUser) => {
+  try {
+    const key = getChatsStorageKey(targetUser);
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    // Migration: If user key is empty, check legacy 'docchat_all_chats'
+    const legacy = localStorage.getItem('docchat_all_chats');
+    if (legacy) {
+      const parsedLegacy = JSON.parse(legacy);
+      if (Array.isArray(parsedLegacy) && parsedLegacy.length > 0) return parsedLegacy;
+    }
+    // Legacy single chat migration
+    const savedDoc = localStorage.getItem('docchat_active_doc');
+    const savedMsgs = localStorage.getItem('docchat_messages');
+    if (savedDoc || savedMsgs) {
+      const parsedDoc = savedDoc ? JSON.parse(savedDoc) : null;
+      const parsedMsgs = savedMsgs ? JSON.parse(savedMsgs) : [];
+      return [
+        {
+          id: 'chat_' + Date.now(),
+          title: parsedDoc ? parsedDoc.filename : 'New Chat',
+          activeDoc: parsedDoc,
+          messages: parsedMsgs,
+          isTemporary: false,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      ];
+    }
+  } catch (e) {
+    console.warn('Failed loading chats from storage:', e);
+  }
+  return [createNewChat()];
+};
+
+const loadActiveChatIdFromStorage = (targetUser, userChats) => {
+  try {
+    const key = getActiveChatStorageKey(targetUser);
+    const savedId = localStorage.getItem(key) || localStorage.getItem('docchat_active_chat_id');
+    if (savedId && userChats.some((c) => c.id === savedId)) {
+      return savedId;
+    }
+  } catch (e) {
+    console.warn('Failed loading active chat ID:', e);
+  }
+  return userChats[0]?.id || null;
+};
+
+export default function App() {
+  const initialUser = (() => {
     try {
-      const saved = localStorage.getItem('docchat_active_chat_id');
-      return saved || null;
+      const saved = localStorage.getItem('documind_user');
+      return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
     }
+  })();
+
+  const [user, setUser] = useState(initialUser);
+
+  const [chats, setChats] = useState(() => loadUserChatsFromStorage(initialUser));
+
+  const [activeChatId, setActiveChatId] = useState(() => {
+    const initialChats = loadUserChatsFromStorage(initialUser);
+    return loadActiveChatIdFromStorage(initialUser, initialChats);
   });
 
   // Resolve active chat
@@ -137,14 +183,6 @@ export default function App() {
   };
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [user, setUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('documind_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [pendingUploadFile, setPendingUploadFile] = useState(null);
 
@@ -206,16 +244,20 @@ export default function App() {
     });
   };
 
-  // Sync persistent chats to localStorage (temporary chats are omitted from localStorage)
+  // Sync persistent chats to user-specific localStorage key
   useEffect(() => {
     try {
+      const storageKey = getChatsStorageKey(user);
+      const activeKey = getActiveChatStorageKey(user);
       const persistentChats = chats.filter((c) => !c.isTemporary);
-      localStorage.setItem('docchat_all_chats', JSON.stringify(persistentChats));
+      localStorage.setItem(storageKey, JSON.stringify(persistentChats));
       if (activeChat && !activeChat.isTemporary) {
-        localStorage.setItem('docchat_active_chat_id', activeChat.id);
+        localStorage.setItem(activeKey, activeChat.id);
       }
-    } catch {}
-  }, [chats, activeChat]);
+    } catch (e) {
+      console.warn('Failed saving chats to localStorage:', e);
+    }
+  }, [chats, activeChat, user]);
 
   // Handler for New Persistent Chat
   const handleNewChat = () => {
@@ -304,9 +346,42 @@ export default function App() {
   };
 
   const handleLoginSuccess = (userData) => {
+    // 1. If currently in guest mode, save current guest chats to guest storage first
+    try {
+      const guestKey = getChatsStorageKey(null);
+      const persistentGuest = chats.filter((c) => !c.isTemporary);
+      localStorage.setItem(guestKey, JSON.stringify(persistentGuest));
+    } catch {}
+
+    // 2. Set authenticated user
     setUser(userData);
     localStorage.setItem('documind_user', JSON.stringify(userData));
     setIsAuthModalOpen(false);
+
+    // 3. Load user's saved chats
+    const userChats = loadUserChatsFromStorage(userData);
+
+    // Check if the user already has saved chats with content
+    const userHasSavedContent = userChats.some(
+      (c) => (c.messages && c.messages.length > 0) || c.activeDoc
+    );
+
+    // If this is a first-time user login and current guest session has an active doc or messages, migrate them into the user's account
+    const currentGuestHasContent = chats.some(
+      (c) => (c.messages && c.messages.length > 0) || c.activeDoc
+    );
+
+    let nextChats = userChats;
+    if (!userHasSavedContent && currentGuestHasContent) {
+      nextChats = chats.filter((c) => !c.isTemporary);
+      if (nextChats.length === 0) nextChats = [createNewChat()];
+    }
+
+    setChats(nextChats);
+    const nextActiveId = loadActiveChatIdFromStorage(userData, nextChats);
+    setActiveChatId(nextActiveId);
+
+    // 4. If there was a pending file upload waiting for auth, trigger it
     if (pendingUploadFile) {
       const fileToUpload = pendingUploadFile;
       setPendingUploadFile(null);
@@ -319,21 +394,33 @@ export default function App() {
   const handleLogout = () => {
     showConfirm({
       title: 'Sign Out',
-      message: 'Are you sure you want to sign out of your account? Your current session will end.',
+      message: 'Are you sure you want to sign out? Your chats and indexed documents remain safely saved in your account.',
       confirmText: 'Sign Out',
       cancelText: 'Cancel',
       type: 'danger',
       icon: <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />,
       onConfirm: () => {
+        // 1. Ensure current user's chats are safely committed to their private key
+        try {
+          if (user?.email) {
+            const userKey = getChatsStorageKey(user);
+            const userActiveKey = getActiveChatStorageKey(user);
+            const persistentUserChats = chats.filter((c) => !c.isTemporary);
+            localStorage.setItem(userKey, JSON.stringify(persistentUserChats));
+            if (activeChat && !activeChat.isTemporary) {
+              localStorage.setItem(userActiveKey, activeChat.id);
+            }
+          }
+        } catch {}
+
+        // 2. Clear active user session
         setUser(null);
         localStorage.removeItem('documind_user');
-        localStorage.removeItem('docchat_all_chats');
-        localStorage.removeItem('docchat_active_chat_id');
-        localStorage.removeItem('docchat_active_doc');
-        localStorage.removeItem('docchat_messages');
-        const fresh = createNewChat();
-        setChats([fresh]);
-        setActiveChatId(fresh.id);
+
+        // 3. Switch to guest workspace (load guest chats if any, or a clean fresh chat)
+        const guestChats = loadUserChatsFromStorage(null);
+        setChats(guestChats);
+        setActiveChatId(loadActiveChatIdFromStorage(null, guestChats));
         setIsAuthModalOpen(false);
       },
     });

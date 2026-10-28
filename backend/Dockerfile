@@ -22,10 +22,13 @@ RUN python -c "from langchain_community.embeddings.fastembed import FastEmbedEmb
 # Copy application source code
 COPY . .
 
+# Ensure full read/write permissions for non-root users in cloud containers
+RUN chmod -R 777 /app
+
 # Expose port
 EXPOSE 8000
 
 ENV PORT=8000
 ENV PYTHONUNBUFFERED=1
 
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["python3", "main.py"]

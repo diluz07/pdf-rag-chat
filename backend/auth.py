@@ -13,8 +13,29 @@ from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+def get_safe_users_db_file() -> str:
+    primary = os.path.join(os.path.dirname(__file__), "users_db.json")
+    try:
+        # Check if writable
+        if os.path.exists(primary):
+            with open(primary, "a") as f:
+                pass
+        else:
+            with open(primary, "w") as f:
+                f.write("{}")
+        return primary
+    except (PermissionError, OSError):
+        fallback = os.path.join("/tmp", "users_db.json")
+        if not os.path.exists(fallback):
+            try:
+                with open(fallback, "w") as f:
+                    f.write("{}")
+            except Exception:
+                pass
+        return fallback
+
 # Persistent file path for user database
-USERS_DB_FILE = os.path.join(os.path.dirname(__file__), "users_db.json")
+USERS_DB_FILE = get_safe_users_db_file()
 
 # In-memory OTP storage: { email: { "code": str, "expires_at": float, "attempts": int, "purpose": "login"|"reset" } }
 otp_store: Dict[str, Dict[str, Any]] = {}
