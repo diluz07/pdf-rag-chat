@@ -55,11 +55,12 @@ def store_chunks(doc_id: str, chunks: List[Document]) -> int:
         return 0
 
     vector_store = get_vector_store(doc_id)
-    # Batch add chunks to vector store
-    batch_size = 64
+    import gc
+    batch_size = 32
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i : i + batch_size]
         vector_store.add_documents(documents=batch)
+        gc.collect()
     
     logger.info(f"Stored {len(chunks)} chunks in collection {get_collection_name(doc_id)}")
     return len(chunks)
