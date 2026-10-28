@@ -1,0 +1,21 @@
+{
+  "client": {
+    "source": "frontend/dist"
+  },
+  "appsail": [
+    {
+      "name": "pagewise-api",
+      "source": "backend",
+      "ignore": [
+        "venv/**",
+        ".venv/**",
+        "__pycache__/**",
+        "*.pyc",
+        "chroma_db/**",
+        "temp_uploads/**",
+        ".pytest_cache/**",
+        "fastembed_cache/**"
+      ]
+    }
+  ]
+}

@@ -117,57 +117,27 @@ export default function MessageList({
     }
   };
 
-  // 0. MANDATORY AUTH STATE (User not logged in)
-  if (!user) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto py-12 px-4 select-none">
-        <div className="w-16 h-16 rounded-3xl bg-white/80 dark:bg-white/10 text-zinc-900 dark:text-white flex items-center justify-center mb-4 shadow-sm border border-zinc-200/80 dark:border-white/15 backdrop-blur-md">
-          <Lock className="w-8 h-8" />
-        </div>
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 dark:bg-white/10 border border-zinc-200/70 dark:border-white/10 text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-3 shadow-2xs backdrop-blur-xs">
-          <span>Document AI Assistant</span>
-        </div>
-        <h3 className="text-xl font-bold tracking-tight">
-          <span className="text-zinc-900 dark:text-white font-normal mr-1.5">Welcome to</span>
-          <span className="font-extrabold text-zinc-950 dark:text-white">PAGE</span>
-          <span className="font-semibold text-zinc-400 dark:text-zinc-500">WISE</span>
-        </h3>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed max-w-sm">
-          Sign in with your email to upload documents, ask questions with Groq AI, and view citations.
-        </p>
-        <button
-          onClick={onOpenAuthModal}
-          className="mt-6 px-5 py-2.5 rounded-2xl bg-white/90 hover:bg-white text-zinc-900 border border-zinc-200/90 dark:bg-white/10 dark:hover:bg-white/15 dark:text-white dark:border-white/15 font-semibold text-xs flex items-center gap-2 shadow-xs backdrop-blur-md transition-all hover:scale-105 active:scale-95 cursor-pointer"
-        >
-          <Mail className="w-4 h-4" />
-          <span>Sign In with Email</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
-    );
-  }
-
   // 1. EMPTY STATE (No PDF loaded)
   if (!activeDoc) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto py-12 px-4 select-none">
         <div 
           onClick={onTriggerUpload}
-          className="w-16 h-16 rounded-3xl bg-white/80 dark:bg-white/10 border border-zinc-200/80 dark:border-white/15 text-zinc-700 dark:text-zinc-300 flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform shadow-sm backdrop-blur-md"
+          className="w-16 h-16 rounded-3xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 flex items-center justify-center mb-4 cursor-pointer hover:scale-105 transition-transform shadow-xs"
         >
           <FileText className="w-8 h-8" />
         </div>
-        <h3 className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           Upload a PDF to start chatting
         </h3>
         <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-relaxed">
           <span className="font-extrabold text-zinc-900 dark:text-white">PAGE</span>
           <span className="font-medium text-zinc-400 dark:text-zinc-500">WISE</span>{' '}
-          analyzes contracts, research papers, financial reports, or manuals and answers questions strictly from the document text.
+          analyzes contracts, research papers, financial reports, or lecture notes and answers questions strictly from the document text.
         </p>
         <button
           onClick={onTriggerUpload}
-          className="mt-5 px-5 py-2.5 rounded-2xl bg-white/90 hover:bg-white text-zinc-900 border border-zinc-200/90 dark:bg-white/10 dark:hover:bg-white/15 dark:text-white dark:border-white/15 font-semibold text-xs flex items-center gap-2 shadow-xs backdrop-blur-md transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          className="mt-5 px-6 py-2.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-950 font-semibold text-xs flex items-center gap-2 shadow-xs transition-all hover:scale-105 active:scale-95 cursor-pointer"
         >
           <UploadCloud className="w-4 h-4" />
           <span>Upload Document</span>

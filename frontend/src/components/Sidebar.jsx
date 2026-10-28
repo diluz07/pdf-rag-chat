@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   FileText,
   UploadCloud,
@@ -15,7 +15,9 @@ import {
   LogIn,
   PanelLeftClose,
   PanelLeftOpen,
-  Layers,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -27,6 +29,7 @@ export default function Sidebar({
   onNewTemporaryChat,
   onSelectChat,
   onDeleteChat,
+  onRenameChat,
   activeDoc,
   isUploading,
   uploadProgressText,
@@ -40,94 +43,124 @@ export default function Sidebar({
   onToggleTemporaryChat,
 }) {
   const fileInputRef = useRef(null);
+  const [editingChatId, setEditingChatId] = useState(null);
+  const [editingTitle, setEditingTitle] = useState('');
+
+  const handleStartRename = (chat, e) => {
+    e?.stopPropagation();
+    setEditingChatId(chat.id);
+    setEditingTitle(chat.title || '');
+  };
+
+  const handleSaveRename = (chatId, e) => {
+    e?.stopPropagation();
+    const trimmed = editingTitle.trim();
+    if (trimmed) {
+      onRenameChat?.(chatId, trimmed);
+    }
+    setEditingChatId(null);
+  };
+
+  const handleCancelRename = (e) => {
+    e?.stopPropagation();
+    setEditingChatId(null);
+  };
 
   const handleDrop = (e) => {
     e.preventDefault();
-    if (!user) {
-      onOpenAuthModal?.();
-      return;
-    }
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      onUploadFile(e.dataTransfer.files[0]);
+      const file = e.dataTransfer.files[0];
+      if (!user) {
+        onOpenAuthModal?.();
+      }
+      onUploadFile(file);
     }
   };
 
   const handleSelect = (e) => {
-    if (!user) {
-      onOpenAuthModal?.();
-      return;
-    }
     if (e.target.files && e.target.files.length > 0) {
-      onUploadFile(e.target.files[0]);
+      const file = e.target.files[0];
+      if (!user) {
+        onOpenAuthModal?.();
+      }
+      onUploadFile(file);
+      e.target.value = '';
     }
   };
 
-  // COLLAPSED STATE: Vertical rectangle block displaying toggle button and user profile
+  // COLLAPSED STATE: Vertical slim bar
   if (!isOpen) {
     return (
-      <aside
-        className="w-16 shrink-0 bg-white/70 dark:bg-black/40 backdrop-blur-2xl border-r border-zinc-200/50 dark:border-white/10 flex flex-col items-center justify-between py-4 z-20 transition-all select-none h-full"
-      >
+      <aside className="w-16 shrink-0 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 flex flex-col items-center justify-between py-4 z-20 transition-all select-none h-full">
         {/* Top Section: Toggle button to re-expand and Quick New Chat */}
         <div className="flex flex-col items-center space-y-3">
           <button
             onClick={onToggleSidebar}
             title="Expand sidebar"
             aria-label="Expand sidebar"
-            className="p-2 rounded-2xl text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-white/10 backdrop-blur-sm transition-colors cursor-pointer"
+            className="p-2 rounded-full text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
           >
             <PanelLeftOpen className="w-5 h-5" />
           </button>
 
-          {user && (
-            <>
-              <button
-                onClick={onNewChat}
-                title="New Chat"
-                aria-label="New Chat"
-                className="w-9 h-9 rounded-2xl bg-white/80 hover:bg-white text-zinc-800 dark:bg-white/10 dark:hover:bg-white/15 dark:text-zinc-200 border border-zinc-200/80 dark:border-white/15 flex items-center justify-center shadow-xs backdrop-blur-md transition-all hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                <Plus className="w-4 h-4 stroke-[2.5]" />
-              </button>
-              <button
-                onClick={onNewTemporaryChat}
-                title="New Temporary Chat"
-                aria-label="New Temporary Chat"
-                className="w-9 h-9 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center justify-center shadow-xs backdrop-blur-md transition-all hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                <MessageCircleDashed className="w-4 h-4" />
-              </button>
-            </>
-          )}
+          {/* New Chat Pill Button */}
+          <button
+            onClick={onNewChat}
+            title="New Chat"
+            aria-label="New Chat"
+            className="w-10 h-10 rounded-full bg-white hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-100 border border-zinc-300 dark:border-zinc-700 flex items-center justify-center transition-all shadow-2xs cursor-pointer"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+          </button>
+
+          {/* Temp Chat Pill Button */}
+          <button
+            onClick={onNewTemporaryChat}
+            title="New Temporary Chat"
+            aria-label="New Temporary Chat"
+            className="w-10 h-10 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center justify-center transition-all shadow-2xs cursor-pointer"
+          >
+            <MessageCircleDashed className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Bottom Section: User Profile in the vertical rectangle block */}
-        <div className="flex flex-col items-center">
+        {/* Bottom Section: User Profile in Collapsed Sidebar */}
+        <div className="flex flex-col items-center gap-2">
           {user ? (
-            <button
-              onClick={onToggleSidebar}
-              title={`${user.name || user.email} (click to expand)`}
-              aria-label="User profile"
-              className="p-1 rounded-full hover:ring-2 hover:ring-zinc-400 dark:hover:ring-zinc-600 transition-all cursor-pointer"
-            >
-              {user.picture ? (
-                <img
-                  src={user.picture}
-                  alt={user.name}
-                  className="w-8 h-8 rounded-full border border-zinc-300 dark:border-zinc-700 object-cover"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-white/80 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-semibold text-xs flex items-center justify-center uppercase border border-zinc-200/80 dark:border-white/15 shadow-xs backdrop-blur-md">
-                  {user.name ? user.name.charAt(0) : 'U'}
-                </div>
-              )}
-            </button>
+            <>
+              <button
+                onClick={onToggleSidebar}
+                title={`${user.name || user.email} (click to expand)`}
+                aria-label="User profile"
+                className="p-0.5 rounded-full hover:ring-2 hover:ring-zinc-400 dark:hover:ring-zinc-600 transition-all cursor-pointer"
+              >
+                {user.picture ? (
+                  <img
+                    src={user.picture}
+                    alt={user.name}
+                    className="w-8 h-8 rounded-full border border-zinc-300 dark:border-zinc-700 object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold text-xs flex items-center justify-center uppercase shadow-xs">
+                    {user.name ? user.name.charAt(0) : 'U'}
+                  </div>
+                )}
+              </button>
+              <button
+                onClick={onLogout}
+                title="Sign out"
+                aria-label="Sign out"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-900/60 transition-all shadow-2xs cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5 stroke-[2.2]" />
+              </button>
+            </>
           ) : (
             <button
               onClick={onOpenAuthModal}
               title="Sign In"
               aria-label="Sign In"
-              className="w-8 h-8 rounded-2xl bg-white/80 hover:bg-white dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-white/15 flex items-center justify-center shadow-xs backdrop-blur-md cursor-pointer"
+              className="w-8 h-8 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 flex items-center justify-center shadow-xs cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
             </button>
@@ -139,11 +172,9 @@ export default function Sidebar({
 
   // EXPANDED STATE: Full Sidebar
   return (
-    <aside
-      className="w-full md:w-[320px] lg:w-[340px] shrink-0 bg-white/70 dark:bg-black/40 backdrop-blur-2xl border-r border-zinc-200/50 dark:border-white/10 flex flex-col z-20 overflow-y-auto transition-all h-full"
-    >
+    <aside className="w-full md:w-[320px] lg:w-[340px] shrink-0 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 flex flex-col z-20 overflow-y-auto transition-all h-full">
       {/* Brand Title with Toggle Button on Sidebar Header */}
-      <div className="p-4 sm:p-5 pb-3 flex items-center justify-between">
+      <div className="p-4 sm:p-5 pb-3 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80">
         <div className="flex items-center">
           <span className="text-xl font-bold tracking-tight select-none">
             <span className="font-extrabold text-zinc-950 dark:text-white">PAGE</span>
@@ -156,7 +187,7 @@ export default function Sidebar({
           onClick={onToggleSidebar}
           title="Collapse sidebar"
           aria-label="Collapse sidebar"
-          className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-white/80 dark:hover:bg-white/10 transition-colors cursor-pointer"
+          className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
         >
           <PanelLeftClose className="w-5 h-5" />
         </button>
@@ -164,59 +195,19 @@ export default function Sidebar({
 
       {/* Main Sidebar Content Area */}
       <div className="p-4 sm:p-5 flex-1 flex flex-col space-y-4">
-        
-        {/* State 0: Unauthenticated Mandatory Gate */}
-        {!user ? (
-          <div className="flex flex-col">
-            <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2 block">
-              Upload Document
-            </label>
-            <div
-              onClick={onOpenAuthModal}
-              className="group relative border-2 border-dashed border-zinc-300 dark:border-zinc-800 hover:border-zinc-500 dark:hover:border-zinc-600 rounded-2xl p-6 text-center cursor-pointer transition-all bg-zinc-50/50 hover:bg-zinc-100/40 dark:bg-zinc-900/40 dark:hover:bg-zinc-850/60 flex flex-col items-center justify-center min-h-[200px]"
-            >
-              <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                <Lock className="w-5 h-5" />
-              </div>
-              <p className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
-                Sign In to Upload
-              </p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-relaxed">
-                Sign in with your email to upload and chat with documents.
-              </p>
+        {/* 1. New Chat & Temporary Chat Pill Action Buttons */}
+        <div className="grid grid-cols-2 gap-2">
               <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenAuthModal?.();
-                }}
-                className="mt-4 px-4 py-2 bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200/90 dark:bg-zinc-900 dark:hover:bg-zinc-850 dark:text-white dark:border-zinc-800 rounded-2xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
-              >
-                <Mail className="w-3.5 h-3.5" />
-                <span>Sign In with Email</span>
-              </button>
-            </div>
-            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-2 text-center">
-              Enter your email to receive an instant 6-digit access code.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* 1. New Chat & Temporary Chat Action Buttons */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
                 onClick={onNewChat}
-                className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-2xl bg-white/80 hover:bg-white text-zinc-900 border border-zinc-200/80 dark:bg-white/5 dark:hover:bg-white/10 dark:text-white dark:border-white/10 font-semibold text-xs shadow-xs backdrop-blur-md transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                className="px-4 py-2.5 rounded-full bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-zinc-700 font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-2xs cursor-pointer"
                 title="Start a new persistent chat saved in history"
               >
                 <Plus className="w-4 h-4 stroke-[2.5]" />
                 <span>New Chat</span>
               </button>
               <button
-                type="button"
                 onClick={onNewTemporaryChat}
-                className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 font-semibold text-xs shadow-xs backdrop-blur-md transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                className="px-4 py-2.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all shadow-2xs cursor-pointer"
                 title="Start a new temporary chat (nothing saved to your device)"
               >
                 <MessageCircleDashed className="w-4 h-4 text-amber-600 dark:text-amber-400" />
@@ -224,45 +215,49 @@ export default function Sidebar({
               </button>
             </div>
 
-            {/* 2. Conversations List */}
+            {/* 2. Conversations List with Renaming & Deleting */}
             {chats && chats.length > 0 && (
               <div className="flex flex-col space-y-1.5">
                 <div className="flex items-center justify-between px-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                     Conversations
                   </span>
-                  <span className="text-[10px] font-semibold bg-white/60 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded-full border border-zinc-200/50 dark:border-white/10 backdrop-blur-xs">
+                  <span className="text-[10px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded-full border border-zinc-200 dark:border-zinc-700">
                     {chats.length}
                   </span>
                 </div>
 
-                <div className="max-h-44 overflow-y-auto space-y-1 pr-0.5">
+                <div className="max-h-48 overflow-y-auto space-y-1 pr-0.5">
                   {chats.map((chat) => {
                     const isActive = chat.id === activeChatId;
                     const msgCount = chat.messages ? chat.messages.length : 0;
                     const isChatTemp = Boolean(chat.isTemporary);
+                    const isCurrentlyEditing = editingChatId === chat.id;
+
                     return (
                       <div
                         key={chat.id}
-                        onClick={() => onSelectChat(chat.id)}
-                        className={`group relative flex items-center justify-between p-2.5 rounded-2xl text-xs transition-all cursor-pointer border ${
+                        onClick={() => {
+                          if (!isCurrentlyEditing) onSelectChat(chat.id);
+                        }}
+                        className={`group relative flex items-center justify-between p-2 rounded-xl text-xs transition-all cursor-pointer border ${
                           isActive
                             ? isChatTemp
-                              ? 'bg-amber-500/10 dark:bg-amber-500/15 border-amber-500/30 text-amber-950 dark:text-amber-200 font-semibold shadow-xs backdrop-blur-md'
-                              : 'bg-white/90 dark:bg-white/10 border-zinc-300/80 dark:border-white/20 text-zinc-900 dark:text-white font-semibold shadow-xs backdrop-blur-md'
-                            : 'bg-white/40 dark:bg-white/5 border-zinc-200/50 dark:border-white/5 hover:bg-white/70 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 backdrop-blur-xs'
+                              ? 'bg-amber-500/15 border-amber-500/40 text-amber-950 dark:text-amber-200 font-semibold shadow-xs'
+                              : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-950 dark:text-white font-semibold shadow-xs'
+                            : 'border-transparent text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60'
                         }`}
                       >
                         <div className="flex items-center space-x-2.5 min-w-0 flex-1">
                           <div
-                            className={`w-6 h-6 rounded-xl flex items-center justify-center shrink-0 border ${
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border ${
                               isActive
                                 ? isChatTemp
-                                  ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/40 shadow-xs'
-                                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 shadow-xs'
+                                  ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/40'
+                                  : 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-600'
                                 : isChatTemp
                                 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                                : 'bg-zinc-100 dark:bg-zinc-850 text-zinc-500 dark:text-zinc-400 border-transparent'
+                                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700/60'
                             }`}
                           >
                             {isChatTemp ? (
@@ -273,37 +268,94 @@ export default function Sidebar({
                               <MessageSquare className="w-3.5 h-3.5" />
                             )}
                           </div>
+
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <p className="truncate text-xs leading-tight">
-                                {chat.title || 'New Chat'}
-                              </p>
-                              {isChatTemp && (
-                                <span className="text-[9px] px-1 py-0.2 rounded-sm bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-bold shrink-0 uppercase tracking-tighter">
-                                  Temp
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5">
-                              {isChatTemp
-                                ? 'Temporary • unsaved'
-                                : chat.activeDoc
-                                ? `${chat.activeDoc.total_pages}p • ${msgCount} msgs`
-                                : `${msgCount} msgs`}
-                            </p>
+                            {isCurrentlyEditing ? (
+                              <div
+                                className="flex items-center gap-1"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <input
+                                  type="text"
+                                  value={editingTitle}
+                                  onChange={(e) => setEditingTitle(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveRename(chat.id, e);
+                                    if (e.key === 'Escape') handleCancelRename(e);
+                                  }}
+                                  autoFocus
+                                  maxLength={50}
+                                  className="w-full px-1.5 py-0.5 text-xs rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleSaveRename(chat.id, e)}
+                                  title="Save"
+                                  aria-label="Save"
+                                  className="p-1 rounded text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                                >
+                                  <Check className="w-3 h-3 stroke-[2.5]" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleCancelRename}
+                                  title="Cancel"
+                                  aria-label="Cancel"
+                                  className="p-1 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="truncate text-xs leading-tight">
+                                    {chat.title || 'New Chat'}
+                                  </p>
+                                  {isChatTemp && (
+                                    <span className="text-[9px] px-1 py-0.2 rounded-sm bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-bold shrink-0 uppercase tracking-tighter">
+                                      Temp
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5">
+                                  {isChatTemp
+                                    ? 'Temporary • unsaved'
+                                    : chat.activeDoc
+                                    ? `${chat.activeDoc.total_pages}p • ${msgCount} msgs`
+                                    : `${msgCount} msgs`}
+                                </p>
+                              </>
+                            )}
                           </div>
                         </div>
 
-                        {/* Delete Chat Button */}
-                        <button
-                          type="button"
-                          onClick={(e) => onDeleteChat(chat.id, e)}
-                          title="Delete chat"
-                          aria-label={`Delete chat ${chat.title}`}
-                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-all ml-1 shrink-0"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {/* Action Buttons: Rename & Delete */}
+                        {!isCurrentlyEditing && (
+                          <div className="flex items-center gap-0.5 shrink-0 ml-1">
+                            {/* Rename Chat Button */}
+                            <button
+                              type="button"
+                              onClick={(e) => handleStartRename(chat, e)}
+                              title="Rename chat"
+                              aria-label={`Rename chat ${chat.title}`}
+                              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60 transition-all cursor-pointer"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+
+                            {/* Delete Chat Button */}
+                            <button
+                              type="button"
+                              onClick={(e) => onDeleteChat(chat.id, e)}
+                              title="Delete chat"
+                              aria-label={`Delete chat ${chat.title}`}
+                              className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 stroke-[2]" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -320,8 +372,14 @@ export default function Sidebar({
                 <div
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="group relative border-2 border-dashed border-zinc-300/80 dark:border-white/10 hover:border-zinc-400 dark:hover:border-white/25 rounded-3xl p-5 text-center cursor-pointer transition-all bg-white/40 hover:bg-white/60 dark:bg-white/5 dark:hover:bg-white/10 backdrop-blur-md flex flex-col items-center justify-center min-h-[170px]"
+                  onClick={() => {
+                    if (!user) {
+                      onOpenAuthModal?.();
+                      return;
+                    }
+                    fileInputRef.current?.click();
+                  }}
+                  className="group relative border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-600 rounded-2xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[160px] bg-zinc-50 dark:bg-zinc-850/50"
                 >
                   <input
                     type="file"
@@ -330,7 +388,7 @@ export default function Sidebar({
                     accept=".pdf,application/pdf,image/png,image/jpeg,image/webp,image/jpg"
                     className="hidden"
                   />
-                  <div className="w-10 h-10 rounded-full bg-white/80 dark:bg-white/10 group-hover:bg-white dark:group-hover:bg-white/20 text-zinc-600 dark:text-zinc-300 flex items-center justify-center mb-2.5 transition-colors border border-zinc-200/60 dark:border-white/10 shadow-2xs">
+                  <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 flex items-center justify-center mb-2.5 transition-colors border border-zinc-200 dark:border-zinc-700 shadow-2xs">
                     <UploadCloud className="w-5 h-5" />
                   </div>
                   <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
@@ -339,14 +397,12 @@ export default function Sidebar({
                   <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1">
                     Indexed specifically for this chat
                   </p>
-                  <span className="inline-block mt-2.5 text-[10px] font-medium text-zinc-500 dark:text-zinc-400 bg-white/80 dark:bg-white/10 px-2.5 py-0.5 rounded-full border border-zinc-200/70 dark:border-white/10 backdrop-blur-xs">
+                  <span className="inline-block mt-2.5 text-[10px] font-medium text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-800 px-2.5 py-0.5 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-2xs">
                     Max 30 MB
                   </span>
                 </div>
               </div>
             )}
-          </>
-        )}
 
         {/* State 2: Processing / Embedding State */}
         {isUploading && (
@@ -354,9 +410,9 @@ export default function Sidebar({
             <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
               Embedding Document
             </label>
-            <div className="border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 rounded-3xl p-4 space-y-3">
+            <div className="border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-850/70 rounded-2xl p-4 space-y-3">
               <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-2xl bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center shrink-0">
                   <Loader2 className="w-5 h-5 animate-spin" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -390,15 +446,15 @@ export default function Sidebar({
               <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                 Active Document
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 backdrop-blur-xs">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 Ready
               </span>
             </div>
 
-            <div className="border border-zinc-200/70 dark:border-white/10 bg-white/60 dark:bg-white/5 backdrop-blur-md shadow-xs rounded-3xl p-4 transition-all hover:border-zinc-300 dark:hover:border-white/20">
+            <div className="border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-850/70 rounded-2xl p-4 transition-all">
               <div className="flex items-start space-x-3">
-                <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center shrink-0 shadow-2xs">
                   <FileText className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -414,7 +470,7 @@ export default function Sidebar({
               </div>
 
               {/* Metadata Specs */}
-              <div className="mt-3 pt-2 grid grid-cols-2 gap-2 text-[11px]">
+              <div className="mt-3 pt-2 grid grid-cols-2 gap-2 text-[11px] border-t border-zinc-200/60 dark:border-zinc-750">
                 <div>
                   <span className="text-zinc-400 block text-[10px]">INDEX STATUS</span>
                   <span className="font-medium text-zinc-700 dark:text-zinc-300">100% Embedded</span>
@@ -425,12 +481,12 @@ export default function Sidebar({
                 </div>
               </div>
 
-              {/* Remove / Upload New PDF Button */}
+              {/* Remove / Upload New PDF Pill Button */}
               <button
                 onClick={onRemoveDoc}
-                className="w-full mt-4 inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-2xl text-zinc-700 dark:text-zinc-200 bg-white/70 hover:bg-white dark:bg-white/10 dark:hover:bg-white/15 border border-zinc-200/70 dark:border-white/10 backdrop-blur-xs transition-colors cursor-pointer"
+                className="w-full mt-4 inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-full text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-900/60 transition-all shadow-2xs cursor-pointer"
               >
-                <Trash2 className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
                 <span>Remove / Upload new PDF</span>
               </button>
             </div>
@@ -439,16 +495,16 @@ export default function Sidebar({
 
         {/* Temporary Chat Toggle Card */}
         <div
-          className={`rounded-3xl p-3.5 border transition-all ${
+          className={`rounded-2xl p-3.5 border transition-all ${
             isTemporaryChat
-              ? 'bg-amber-500/10 border-amber-500/30 backdrop-blur-md shadow-xs'
-              : 'bg-white/40 dark:bg-white/5 border-zinc-200/60 dark:border-white/10 backdrop-blur-md'
+              ? 'bg-amber-500/10 border-amber-500/30 shadow-xs'
+              : 'bg-zinc-50 dark:bg-zinc-850/70 border-zinc-200 dark:border-zinc-800'
           }`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2.5 min-w-0">
               <div
-                className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                   isTemporaryChat
                     ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400'
                     : 'bg-zinc-200/80 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
@@ -497,9 +553,9 @@ export default function Sidebar({
       </div>
 
       {/* Bottom Left Footer: User Profile */}
-      <div className="p-3 bg-white/30 dark:bg-white/5 backdrop-blur-md border-t border-zinc-200/40 dark:border-white/10 shrink-0">
+      <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
         {user ? (
-          <div className="flex items-center justify-between gap-2 p-1.5 rounded-2xl hover:bg-white/60 dark:hover:bg-white/10 transition-colors">
+          <div className="flex items-center justify-between gap-2.5 p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
               {user.picture ? (
                 <img
@@ -508,32 +564,35 @@ export default function Sidebar({
                   className="w-8 h-8 rounded-full border border-zinc-300 dark:border-zinc-700 object-cover shrink-0"
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-white/80 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 font-semibold text-xs flex items-center justify-center uppercase shadow-xs shrink-0 border border-zinc-200/80 dark:border-white/15 backdrop-blur-xs">
+                <div className="w-8 h-8 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold text-xs flex items-center justify-center uppercase shadow-xs shrink-0">
                   {user.name ? user.name.charAt(0) : 'U'}
                 </div>
               )}
               <div className="flex flex-col text-left min-w-0 flex-1">
-                <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate">
+                <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
                   {user.name || 'User'}
                 </span>
-                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
                   {user.email}
                 </span>
               </div>
             </div>
+
+            {/* Sign Out Pill Button */}
             <button
               onClick={onLogout}
-              title="Sign out"
+              title="Sign out of account"
               aria-label="Sign out"
-              className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors shrink-0 cursor-pointer"
+              className="px-3 py-1.5 rounded-full text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-900/60 transition-all flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5 stroke-[2.2]" />
+              <span>Sign out</span>
             </button>
           </div>
         ) : (
           <button
             onClick={onOpenAuthModal}
-            className="w-full px-3 py-2 rounded-2xl bg-white/80 hover:bg-white text-zinc-900 border border-zinc-200/80 dark:bg-white/10 dark:hover:bg-white/15 dark:text-white dark:border-white/15 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-xs backdrop-blur-md cursor-pointer"
+            className="w-full px-4 py-2.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-950 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
           >
             <LogIn className="w-3.5 h-3.5" />
             <span>Sign In</span>

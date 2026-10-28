@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UploadCloud, MessageCircleDashed, Plus } from 'lucide-react';
+import { UploadCloud, MessageCircleDashed, Plus, LogOut } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import MessageList from './components/MessageList';
@@ -145,14 +145,8 @@ export default function App() {
       return null;
     }
   });
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(() => {
-    try {
-      const saved = localStorage.getItem('documind_user');
-      return !saved;
-    } catch {
-      return true;
-    }
-  });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [pendingUploadFile, setPendingUploadFile] = useState(null);
 
   // In-page alert and confirmation modal state
   const [confirmModal, setConfirmModal] = useState({
@@ -162,6 +156,7 @@ export default function App() {
     confirmText: 'Confirm',
     cancelText: 'Cancel',
     type: 'danger',
+    icon: null,
     onConfirm: () => {},
     onCancel: () => {},
   });
@@ -172,6 +167,7 @@ export default function App() {
     confirmText = 'Confirm',
     cancelText = 'Cancel',
     type = 'danger',
+    icon = null,
     onConfirm,
   }) => {
     setConfirmModal({
@@ -181,6 +177,7 @@ export default function App() {
       confirmText,
       cancelText,
       type,
+      icon,
       onConfirm: () => {
         setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         if (onConfirm) onConfirm();
@@ -194,6 +191,7 @@ export default function App() {
     message,
     confirmText = 'Understood',
     type = 'info',
+    icon = null,
   }) => {
     setConfirmModal({
       isOpen: true,
@@ -202,6 +200,7 @@ export default function App() {
       confirmText,
       cancelText: null,
       type,
+      icon,
       onConfirm: () => setConfirmModal((prev) => ({ ...prev, isOpen: false })),
       onCancel: () => setConfirmModal((prev) => ({ ...prev, isOpen: false })),
     });
@@ -277,6 +276,15 @@ export default function App() {
     });
   };
 
+  // Handler for Renaming a Chat
+  const handleRenameChat = (chatId, newTitle) => {
+    const trimmed = (newTitle || '').trim();
+    if (!trimmed) return;
+    setChats((prev) =>
+      prev.map((c) => (c.id === chatId ? { ...c, title: trimmed, updatedAt: Date.now() } : c))
+    );
+  };
+
   // Handler to toggle temporary mode on the active chat (convert existing chat to/from temporary)
   const handleToggleTemporaryChat = () => {
     if (!currentChatId) return;
@@ -299,19 +307,36 @@ export default function App() {
     setUser(userData);
     localStorage.setItem('documind_user', JSON.stringify(userData));
     setIsAuthModalOpen(false);
+    if (pendingUploadFile) {
+      const fileToUpload = pendingUploadFile;
+      setPendingUploadFile(null);
+      setTimeout(() => {
+        handleUploadFile(fileToUpload, userData);
+      }, 100);
+    }
   };
 
   const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('documind_user');
-    localStorage.removeItem('docchat_all_chats');
-    localStorage.removeItem('docchat_active_chat_id');
-    localStorage.removeItem('docchat_active_doc');
-    localStorage.removeItem('docchat_messages');
-    const fresh = createNewChat();
-    setChats([fresh]);
-    setActiveChatId(fresh.id);
-    setIsAuthModalOpen(true);
+    showConfirm({
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out of your account? Your current session will end.',
+      confirmText: 'Sign Out',
+      cancelText: 'Cancel',
+      type: 'danger',
+      icon: <LogOut className="w-5 h-5 text-red-600 dark:text-red-400" />,
+      onConfirm: () => {
+        setUser(null);
+        localStorage.removeItem('documind_user');
+        localStorage.removeItem('docchat_all_chats');
+        localStorage.removeItem('docchat_active_chat_id');
+        localStorage.removeItem('docchat_active_doc');
+        localStorage.removeItem('docchat_messages');
+        const fresh = createNewChat();
+        setChats([fresh]);
+        setActiveChatId(fresh.id);
+        setIsAuthModalOpen(false);
+      },
+    });
   };
 
   // Sync dark mode class on <html> and save to localStorage
@@ -349,8 +374,10 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleUploadFile = async (file) => {
-    if (!user) {
+  const handleUploadFile = async (file, explicitUser = null) => {
+    const currentUser = explicitUser || user;
+    if (!currentUser) {
+      setPendingUploadFile(file);
       setIsAuthModalOpen(true);
       return;
     }
@@ -379,8 +406,8 @@ export default function App() {
 
     const formData = new FormData();
     formData.append('file', file);
-    if (user?.email) {
-      formData.append('user_email', user.email);
+    if (currentUser?.email) {
+      formData.append('user_email', currentUser.email);
     }
 
     try {
@@ -400,10 +427,16 @@ export default function App() {
       setMessages([]);
       setIsMobileSidebarOpen(false);
     } catch (err) {
+      const isNetworkError =
+        err.message.includes('Load failed') ||
+        err.message.includes('Failed to fetch') ||
+        err.message.includes('NetworkError');
       showAlert({
-        title: 'Upload Error',
-        message: `Upload error: ${err.message}`,
-        type: 'danger',
+        title: isNetworkError ? 'Server Waking Up' : 'Upload Error',
+        message: isNetworkError
+          ? 'The cloud server was waking up from idle mode. It is connected now—please tap Upload once more!'
+          : `Upload error: ${err.message}`,
+        type: isNetworkError ? 'warning' : 'danger',
       });
     } finally {
       setIsUploading(false);
@@ -520,12 +553,14 @@ export default function App() {
   const handleMainDrop = (e) => {
     e.preventDefault();
     setIsDragOverMain(false);
-    if (!user) {
-      setIsAuthModalOpen(true);
-      return;
-    }
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleUploadFile(e.dataTransfer.files[0]);
+      const file = e.dataTransfer.files[0];
+      if (!user) {
+        setPendingUploadFile(file);
+        setIsAuthModalOpen(true);
+        return;
+      }
+      handleUploadFile(file);
     }
   };
 
@@ -573,6 +608,7 @@ export default function App() {
           onNewTemporaryChat={handleNewTemporaryChat}
           onSelectChat={handleSelectChat}
           onDeleteChat={handleDeleteChat}
+          onRenameChat={handleRenameChat}
           activeDoc={activeDoc}
           isUploading={isUploading}
           uploadProgressText={uploadProgressText}
@@ -593,12 +629,12 @@ export default function App() {
           onDragOver={handleMainDragOver}
           onDragLeave={handleMainDragLeave}
           onDrop={handleMainDrop}
-          className="flex-1 flex flex-col bg-transparent min-w-0 h-full overflow-hidden relative"
+          className="flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-950 min-w-0 h-full overflow-hidden relative"
         >
           {/* Drag & Drop Full-screen Overlay */}
           {isDragOverMain && (
-            <div className="absolute inset-0 z-40 bg-zinc-900/10 dark:bg-white/5 backdrop-blur-xs border-2 border-dashed border-zinc-400 dark:border-zinc-700 flex flex-col items-center justify-center p-6 pointer-events-none animate-in fade-in duration-150">
-              <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-zinc-900 to-zinc-700 dark:from-zinc-100 dark:to-zinc-300 text-white dark:text-zinc-950 flex items-center justify-center shadow-lg shadow-black/25 mb-3 animate-bounce">
+            <div className="absolute inset-0 z-40 bg-zinc-900/10 dark:bg-white/5 border-2 border-dashed border-zinc-400 dark:border-zinc-700 flex flex-col items-center justify-center p-6 pointer-events-none animate-in fade-in duration-150">
+              <div className="w-16 h-16 rounded-3xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center shadow-lg shadow-black/25 mb-3 animate-bounce">
                 <UploadCloud className="w-8 h-8" />
               </div>
               <p className="text-base font-bold text-zinc-900 dark:text-white">
@@ -614,10 +650,12 @@ export default function App() {
             isSidebarOpen={isSidebarOpen}
             onToggleSidebar={handleToggleSidebar}
             activeDoc={activeDoc}
-            chatTitle={activeDoc ? activeDoc.filename : activeChat?.title || 'New Chat'}
+            chatId={currentChatId}
+            chatTitle={activeChat?.title || (activeDoc ? activeDoc.filename : 'New Chat')}
             onNewChat={handleNewChat}
             onNewTemporaryChat={handleNewTemporaryChat}
             onClearChat={handleClearChat}
+            onRenameChat={handleRenameChat}
             isDarkMode={isDarkMode}
             onToggleTheme={() => setIsDarkMode(!isDarkMode)}
             onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
@@ -630,7 +668,7 @@ export default function App() {
 
           {/* Temporary Chat Notice Banner */}
           {isTemporaryChat && (
-            <div className="mx-4 sm:mx-6 my-1.5 px-4 py-2 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/25 backdrop-blur-md flex items-center justify-between text-xs text-amber-800 dark:text-amber-300 transition-all shadow-xs shrink-0">
+            <div className="mx-4 sm:mx-6 my-2 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 flex items-center justify-between text-xs text-amber-800 dark:text-amber-300 transition-all shadow-2xs shrink-0">
               <div className="flex items-center gap-2 min-w-0">
                 <MessageCircleDashed className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                 <span className="truncate">
@@ -672,16 +710,12 @@ export default function App() {
         </main>
       </div>
 
-      {/* Authentication Modal - Mandatory when no active session */}
+      {/* Authentication Modal */}
       <AuthModal
-        isOpen={isAuthModalOpen || !user}
-        onClose={() => {
-          if (user) {
-            setIsAuthModalOpen(false);
-          }
-        }}
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
         onLoginSuccess={handleLoginSuccess}
-        isMandatory={!user}
+        isMandatory={false}
       />
 
       {/* In-page Confirmation & Alert Modal */}
@@ -692,6 +726,7 @@ export default function App() {
         confirmText={confirmModal.confirmText}
         cancelText={confirmModal.cancelText}
         type={confirmModal.type}
+        icon={confirmModal.icon}
         onConfirm={confirmModal.onConfirm}
         onCancel={confirmModal.onCancel}
       />
