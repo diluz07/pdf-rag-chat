@@ -1,4 +1,4 @@
-# DocuMind — Precision PDF Question-Answering RAG Chat Web App
+# PAGEWISE — Precision PDF Question-Answering RAG Chat Web App
 
 A production-grade, zero-hallucination PDF Question Answering web application powered by **FastAPI**, **LangChain**, **FastEmbed** (`BAAI/bge-small-en-v1.5`), **ChromaDB**, and **Groq (Llama 3.3)** with automatic **OpenRouter** fallback.
 
