@@ -37,15 +37,19 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS configuration
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"] if "*" in ALLOWED_ORIGINS else ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS configuration: On Zoho Catalyst AppSail, ZGS proxy automatically injects CORS headers.
+# Enabling CORSMiddleware simultaneously creates duplicate Access-Control-Allow-Origin headers,
+# which violates W3C CORS and triggers browser "Failed to fetch" network errors.
+IS_CATALYST = bool(os.getenv("X_ZOHO_CATALYST_LISTEN_PORT") or os.getenv("ZOHO_CATALYST") == "true")
+if not IS_CATALYST:
+    ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"] if "*" in ALLOWED_ORIGINS else ALLOWED_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Directories
 def get_safe_temp_dir() -> str:
@@ -398,6 +402,109 @@ class VerifyOtpRequest(BaseModel):
 
 class GoogleAuthRequest(BaseModel):
     credential: str
+
+
+class RegisterOtpRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
+
+
+class VerifyRegisterOtpRequest(BaseModel):
+    email: str
+    code: str
+
+
+@app.post("/auth/register/request-otp", tags=["Authentication"])
+def request_registration_otp(req: RegisterOtpRequest):
+    """Validates registration details, generates a 6-digit verification OTP, and emails it."""
+    email = req.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please provide a valid email address.",
+        )
+    if len(req.password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters long.",
+        )
+
+    from auth import load_users_db
+    users = load_users_db()
+    if email in users:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email already exists. Please sign in.",
+        )
+
+    code = generate_otp()
+    otp_store[email] = {
+        "code": code,
+        "expires_at": time.time() + OTP_EXPIRY_SECONDS,
+        "attempts": 0,
+        "purpose": "registration",
+        "name": req.name.strip() if req.name else email.split("@")[0].capitalize(),
+        "password": req.password,
+    }
+
+    send_email_otp(email, code)
+    return {
+        "success": True,
+        "email": email,
+        "message": f"Verification code sent to {email}.",
+    }
+
+
+@app.post("/auth/register/verify-otp", tags=["Authentication"])
+def verify_registration_otp(req: VerifyRegisterOtpRequest):
+    """Verifies the 6-digit registration OTP and creates the account."""
+    email = req.email.strip().lower()
+    code = req.code.strip()
+
+    entry = otp_store.get(email)
+    if not entry or entry.get("purpose") != "registration":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No registration verification code found for this email, or it has expired.",
+        )
+
+    if time.time() > entry["expires_at"]:
+        del otp_store[email]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code has expired. Please request a new one.",
+        )
+
+    if entry["attempts"] >= 5:
+        del otp_store[email]
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many invalid attempts. Please request a fresh code.",
+        )
+
+    if entry["code"] != code:
+        entry["attempts"] += 1
+        remaining = 5 - entry["attempts"]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Incorrect verification code. {remaining} attempt(s) remaining.",
+        )
+
+    # Valid OTP! Create user in database
+    reg_password = entry["password"]
+    reg_name = entry["name"]
+    del otp_store[email]
+
+    success, message, profile = register_user(email, reg_password, reg_name)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
+
+    return {
+        "success": True,
+        "user": profile,
+        "message": "Account created and verified successfully!",
+    }
 
 
 @app.post("/auth/register", tags=["Authentication"])

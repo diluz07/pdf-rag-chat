@@ -96,9 +96,9 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
     }
   };
 
-  // 2. Account Registration
+  // 2. Account Registration - Step 1: Request OTP
   const handleRegister = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       setError('Please enter a valid email address.');
@@ -118,25 +118,80 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
     setSuccessMsg('');
 
     try {
-      const res = await fetch(`${BACKEND_URL}/auth/register`, {
+      const res = await fetch(`${BACKEND_URL}/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: cleanEmail,
-          password,
-          name: name.trim() || undefined,
-        }),
+        body: JSON.stringify({ email: cleanEmail }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.detail || 'Registration failed.');
+        throw new Error(data.detail || 'Could not send verification code.');
       }
 
-      onLoginSuccess(data.user);
+      setMode('signup_otp');
+      setCode('');
+      setCountdown(60);
+      setSuccessMsg(`A 6-digit verification code was dispatched to ${cleanEmail}`);
+    } catch (err) {
+      setError(err.message || 'Error dispatching verification code.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 2b. Account Registration - Step 2: Verify OTP & Create Account
+  const handleVerifyRegisterOtp = async (e) => {
+    e.preventDefault();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = code.trim();
+    if (cleanCode.length !== 6) {
+      setError('Please enter the 6-digit verification code.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    setSuccessMsg('');
+
+    try {
+      // 1. Verify 6-digit OTP code
+      const verifyRes = await fetch(`${BACKEND_URL}/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: cleanEmail,
+          code: cleanCode,
+        }),
+      });
+
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) {
+        throw new Error(verifyData.detail || 'Incorrect or expired verification code.');
+      }
+
+      // 2. Register account credentials
+      let authenticatedUser = verifyData.user;
+      try {
+        const regRes = await fetch(`${BACKEND_URL}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: cleanEmail,
+            password,
+            name: name.trim() || undefined,
+          }),
+        });
+        const regData = await regRes.json();
+        if (regRes.ok && regData.user) {
+          authenticatedUser = regData.user;
+        }
+      } catch {}
+
+      onLoginSuccess(authenticatedUser);
       onClose();
     } catch (err) {
-      setError(err.message || 'Registration error.');
+      setError(err.message || 'Invalid or expired verification code.');
     } finally {
       setIsLoading(false);
     }
@@ -319,7 +374,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
           <div className="w-11 h-11 mx-auto mb-2.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white flex items-center justify-center shadow-xs border border-zinc-200 dark:border-zinc-700">
             {mode === 'forgot' || mode === 'reset' ? (
               <ShieldCheck className="w-5 h-5 text-zinc-700 dark:text-zinc-300" />
-            ) : mode === 'otp_email' || mode === 'otp_code' ? (
+            ) : mode === 'otp_email' || mode === 'otp_code' || mode === 'signup_otp' ? (
               <Mail className="w-5 h-5 text-zinc-700 dark:text-zinc-300" />
             ) : (
               <Lock className="w-5 h-5 text-zinc-700 dark:text-zinc-300" />
@@ -332,6 +387,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
             {mode === 'login' && 'Sign in to access your documents and chats'}
             {mode === 'signup' && 'Create your secure account'}
+            {mode === 'signup_otp' && 'Verify your email to complete registration'}
             {mode === 'forgot' && 'Reset your account password'}
             {mode === 'reset' && 'Set a new secure password'}
             {mode === 'otp_email' && 'Passwordless sign in with 6-digit code'}
@@ -566,6 +622,76 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, isMandatory
                   Sign In
                 </button>
               </p>
+            </div>
+          </form>
+        )}
+
+        {/* ── Mode 2b: SIGNUP OTP VERIFICATION ── */}
+        {mode === 'signup_otp' && (
+          <form onSubmit={handleVerifyRegisterOtp} className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                  Verification Code
+                </label>
+                <span className="text-[11px] text-zinc-500 font-medium truncate max-w-[180px]">{email}</span>
+              </div>
+              <div className="relative">
+                <KeyRound className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  autoFocus
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="123456"
+                  className="w-full pl-10 pr-3.5 py-2.5 text-center text-lg tracking-[0.25em] font-mono bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-500 transition-all"
+                />
+              </div>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1.5 text-center">
+                Enter the 6-digit verification code dispatched to your email.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading || code.trim().length !== 6}
+              className="w-full py-2.5 px-4 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 disabled:opacity-50 text-white dark:text-zinc-900 font-medium text-xs rounded-full transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+            >
+              {isLoading ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Verifying & creating account...</span>
+                </>
+              ) : (
+                <>
+                  <span>Verify & Create Account</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </>
+              )}
+            </button>
+
+            <div className="pt-2 text-center space-y-2 border-t border-zinc-100 dark:border-zinc-800">
+              <div className="flex items-center justify-between text-xs">
+                <button
+                  type="button"
+                  onClick={() => switchMode('signup')}
+                  className="text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 flex items-center gap-1 cursor-pointer"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Edit Info</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={countdown > 0 || isLoading}
+                  onClick={handleRegister}
+                  className="font-semibold text-zinc-900 dark:text-white hover:underline disabled:opacity-50 cursor-pointer"
+                >
+                  {countdown > 0 ? `Resend in ${countdown}s` : 'Resend Code'}
+                </button>
+              </div>
             </div>
           </form>
         )}
